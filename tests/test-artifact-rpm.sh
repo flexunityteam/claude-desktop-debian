@@ -105,6 +105,9 @@ assert_contains '/usr/bin/claude-desktop' 'run_doctor' \
 assert_contains '/usr/bin/claude-desktop' 'run_mcp_cli' \
 	"Launcher references run_mcp_cli"
 assert_file_exists '/usr/lib/claude-desktop/mcp-cli.sh'
+assert_contains '/usr/bin/claude-desktop' 'run_cowork_setup' \
+	"Launcher references run_cowork_setup"
+assert_file_exists '/usr/lib/claude-desktop/cowork-setup.sh'
 assert_contains '/usr/bin/claude-desktop' 'build_electron_args' \
 	"Launcher calls build_electron_args"
 

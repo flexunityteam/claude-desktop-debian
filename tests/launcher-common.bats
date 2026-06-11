@@ -88,11 +88,12 @@ setup() {
 	CLAUDE_PASSWORD_STORE='basic'
 
 	# Copy to temp dir so we can substitute the build-time placeholder
-	# and co-locate doctor.sh + mcp-cli.sh (sourced via BASH_SOURCE
-	# dirname).
+	# and co-locate doctor.sh + mcp-cli.sh + cowork-setup.sh (sourced
+	# via BASH_SOURCE dirname).
 	cp "$SCRIPT_DIR/../scripts/launcher-common.sh" "$TEST_TMP/launcher-common.sh"
 	cp "$SCRIPT_DIR/../scripts/doctor.sh" "$TEST_TMP/doctor.sh"
 	cp "$SCRIPT_DIR/../scripts/mcp-cli.sh" "$TEST_TMP/mcp-cli.sh"
+	cp "$SCRIPT_DIR/../scripts/cowork-setup.sh" "$TEST_TMP/cowork-setup.sh"
 	sed -i 's/@@WM_CLASS@@/Claude/' "$TEST_TMP/launcher-common.sh"
 	# shellcheck source=scripts/launcher-common.sh
 	source "$TEST_TMP/launcher-common.sh"

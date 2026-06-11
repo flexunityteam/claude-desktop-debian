@@ -99,6 +99,12 @@ if [[ "\${1:-}" == '--mcp' ]]; then
 	exit \$?
 fi
 
+# Handle --cowork-setup (check/install KVM backend dependencies)
+if [[ "\${1:-}" == '--cowork-setup' ]]; then
+	run_cowork_setup "\${2:-}"
+	exit \$?
+fi
+
 # Setup logging and environment
 setup_logging || exit 1
 setup_electron_env
@@ -267,6 +273,7 @@ cp $(dirname "$script_dir")/launcher-common.sh %{buildroot}/usr/lib/$package_nam
 sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "%{buildroot}/usr/lib/$package_name/launcher-common.sh"
 cp $(dirname "$script_dir")/doctor.sh %{buildroot}/usr/lib/$package_name/
 cp $(dirname "$script_dir")/mcp-cli.sh %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/cowork-setup.sh %{buildroot}/usr/lib/$package_name/
 
 # Install desktop entry
 install -Dm 644 $staging_dir/claude-desktop.desktop %{buildroot}/usr/share/applications/claude-desktop.desktop

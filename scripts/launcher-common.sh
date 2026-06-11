@@ -677,3 +677,13 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/doctor.sh"
 #===============================================================================
 # shellcheck source=scripts/mcp-cli.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mcp-cli.sh"
+
+#===============================================================================
+# Cowork KVM Setup
+#
+# run_cowork_setup lives in cowork-setup.sh alongside this file. Must be
+# sourced after doctor.sh: it reuses _cowork_distro_id, _find_virtiofsd,
+# and the _pass/_warn/_info output helpers defined there.
+#===============================================================================
+# shellcheck source=scripts/cowork-setup.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cowork-setup.sh"

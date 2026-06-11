@@ -207,15 +207,17 @@ stdenvNoCC.mkDerivation {
       fi
     done
 
-    # Install shared launcher library + doctor + mcp-cli
-    # (launcher-common.sh sources doctor.sh and mcp-cli.sh at runtime,
-    # so all three must live in the same dir)
+    # Install shared launcher library + doctor + mcp-cli + cowork-setup
+    # (launcher-common.sh sources doctor.sh, mcp-cli.sh, and
+    # cowork-setup.sh at runtime, so all four must live in the same dir)
     install -Dm755 ${sourceRoot}/scripts/launcher-common.sh \
       $out/lib/claude-desktop/launcher-common.sh
     install -Dm755 ${sourceRoot}/scripts/doctor.sh \
       $out/lib/claude-desktop/doctor.sh
     install -Dm755 ${sourceRoot}/scripts/mcp-cli.sh \
       $out/lib/claude-desktop/mcp-cli.sh
+    install -Dm755 ${sourceRoot}/scripts/cowork-setup.sh \
+      $out/lib/claude-desktop/cowork-setup.sh
 
     # Install .desktop file
     mkdir -p $out/share/applications
@@ -243,6 +245,12 @@ fi
 if [[ "''${1:-}" == '--mcp' ]]; then
 	shift
 	run_mcp_cli "$electron_exec" "$@"
+	exit $?
+fi
+
+# Handle --cowork-setup (check/install KVM backend dependencies)
+if [[ "''${1:-}" == '--cowork-setup' ]]; then
+	run_cowork_setup "''${2:-}"
 	exit $?
 fi
 

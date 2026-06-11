@@ -152,6 +152,28 @@ EOF
 
 Run `claude-desktop --doctor` to see which backend is selected and which dependencies are available.
 
+### Setting Up the KVM Backend
+
+The KVM backend gives the strongest isolation but needs host packages that no
+distro installs by default. `--cowork-setup` checks everything the backend
+requires and can install what's missing:
+
+```bash
+# Report what's missing and show the exact commands that would fix it
+claude-desktop --cowork-setup
+
+# Run those commands (via sudo)
+claude-desktop --cowork-setup --install
+```
+
+The check covers CPU virtualization support (VT-x/AMD-V), `/dev/kvm` access
+(plans a `kvm` group membership when the device exists but isn't accessible —
+takes effect after re-login), QEMU, `socat`, `virtiofsd` (plans a symlink when
+the binary exists off-PATH, a package install when absent), and the
+`vhost_vsock` kernel module (loaded immediately and persisted via
+`/etc/modules-load.d/`). Package names are resolved per distro (apt/dnf/pacman).
+Without `--install` nothing is executed — the plan is only printed for review.
+
 ## Cowork Sandbox Mounts
 
 When using Cowork mode with the BubbleWrap (bwrap) backend, you can customize

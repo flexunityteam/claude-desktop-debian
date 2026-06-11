@@ -1285,6 +1285,9 @@ print(len(servers))
 		cowork_backend='KVM (full VM isolation)'
 	fi
 	_info "Cowork isolation: $cowork_backend"
+	if [[ $cowork_backend != KVM* ]]; then
+		_info 'KVM backend setup: claude-desktop --cowork-setup'
+	fi
 
 	# Custom bwrap mount configuration
 	_doctor_check_bwrap_mounts

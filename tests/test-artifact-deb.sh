@@ -122,6 +122,9 @@ assert_contains '/usr/bin/claude-desktop' 'run_doctor' \
 assert_contains '/usr/bin/claude-desktop' 'run_mcp_cli' \
 	"Launcher references run_mcp_cli"
 assert_file_exists '/usr/lib/claude-desktop/mcp-cli.sh'
+assert_contains '/usr/bin/claude-desktop' 'run_cowork_setup' \
+	"Launcher references run_cowork_setup"
+assert_file_exists '/usr/lib/claude-desktop/cowork-setup.sh'
 assert_contains '/usr/bin/claude-desktop' 'build_electron_args' \
 	"Launcher calls build_electron_args"
 
@@ -137,6 +140,17 @@ if [[ $mcp_exit -eq 0 && $mcp_out == *'No MCP servers configured'* ]]; then
 	pass "--mcp list runs on bundled Electron (exit 0)"
 else
 	fail "--mcp list failed (exit $mcp_exit): $mcp_out"
+fi
+
+# --- Cowork setup smoke test ---
+# --help must exit 0; the dry-run itself is host-dependent (exit 0
+# when ready, 1 when gaps exist) so only the usage path is asserted.
+cw_out=$(/usr/bin/claude-desktop --cowork-setup --help 2>&1)
+cw_exit=$?
+if [[ $cw_exit -eq 0 && $cw_out == *'--cowork-setup'* ]]; then
+	pass "--cowork-setup --help exits 0"
+else
+	fail "--cowork-setup --help failed (exit $cw_exit): $cw_out"
 fi
 
 # --- App contents (asar) ---

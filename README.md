@@ -167,6 +167,8 @@ For additional configuration options including environment variables and Wayland
 
 Run `claude-desktop --doctor` for built-in diagnostics that check common issues (display server, sandbox permissions, MCP config, stale locks, and more). It also reports cowork mode readiness — which isolation backend will be used, and which dependencies (KVM, QEMU, vsock, socat, virtiofsd, bubblewrap) are installed or missing. Add `--fix` to auto-repair safe findings (stale locks, oversized logs; sandbox permissions and AppArmor profile loading when run with `sudo`).
 
+To set up Cowork's KVM isolation backend, run `claude-desktop --cowork-setup` — it reports the missing pieces (QEMU, socat, virtiofsd, vsock module, `/dev/kvm` access) and prints the exact commands to fix them; add `--install` to run them via sudo. See [docs/configuration.md](docs/configuration.md#setting-up-the-kvm-backend).
+
 For additional troubleshooting, uninstallation instructions, and log locations, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Acknowledgments

@@ -73,7 +73,8 @@ cp "$(dirname "$script_dir")/launcher-common.sh" "$install_dir/lib/$package_name
 sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "$install_dir/lib/$package_name/launcher-common.sh"
 cp "$(dirname "$script_dir")/doctor.sh" "$install_dir/lib/$package_name/" || exit 1
 cp "$(dirname "$script_dir")/mcp-cli.sh" "$install_dir/lib/$package_name/" || exit 1
-echo 'Shared launcher library + doctor + mcp-cli copied'
+cp "$(dirname "$script_dir")/cowork-setup.sh" "$install_dir/lib/$package_name/" || exit 1
+echo 'Shared launcher library + doctor + mcp-cli + cowork-setup copied'
 
 # --- Create Desktop Entry ---
 echo 'Creating desktop entry...'
@@ -118,6 +119,12 @@ if [[ "\${1:-}" == '--mcp' ]]; then
 	shift
 	local_electron_path="/usr/lib/$package_name/node_modules/electron/dist/electron"
 	run_mcp_cli "\$local_electron_path" "\$@"
+	exit \$?
+fi
+
+# Handle --cowork-setup (check/install KVM backend dependencies)
+if [[ "\${1:-}" == '--cowork-setup' ]]; then
+	run_cowork_setup "\${2:-}"
 	exit \$?
 fi
 

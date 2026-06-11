@@ -51,7 +51,8 @@ cp "$(dirname "$script_dir")/launcher-common.sh" "$appdir_path/usr/lib/claude-de
 sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "$appdir_path/usr/lib/claude-desktop/launcher-common.sh"
 cp "$(dirname "$script_dir")/doctor.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
 cp "$(dirname "$script_dir")/mcp-cli.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
-echo 'Shared launcher library + doctor + mcp-cli copied'
+cp "$(dirname "$script_dir")/cowork-setup.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
+echo 'Shared launcher library + doctor + mcp-cli + cowork-setup copied'
 
 # Ensure Electron is bundled within the AppDir for portability
 # Check if electron was copied into the staging dir's node_modules
@@ -91,6 +92,12 @@ if [[ "${1:-}" == '--mcp' ]]; then
 	shift
 	electron_path="$appdir/usr/lib/node_modules/electron/dist/electron"
 	run_mcp_cli "$electron_path" "$@"
+	exit $?
+fi
+
+# Handle --cowork-setup (check/install KVM backend dependencies)
+if [[ "${1:-}" == '--cowork-setup' ]]; then
+	run_cowork_setup "${2:-}"
 	exit $?
 fi
 
