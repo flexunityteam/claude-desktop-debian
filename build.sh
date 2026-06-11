@@ -288,6 +288,18 @@ main() {
 
 	# Phase 3: Patch and prepare
 	patch_app_asar
+
+	# Fail fast on silent patch regressions: every marker in
+	# scripts/patch-markers.tsv must be present in the patched tree
+	# before it is repacked (issue #559 D6; loud-failure lesson from
+	# the #515 tray regression).
+	echo 'Verifying patch markers...'
+	if ! "$source_dir/scripts/verify-patches.sh" "$app_staging_dir"; then
+		echo 'Error: patch verification failed — one or more patches' \
+			'did not apply. See MISS lines above.' >&2
+		exit 1
+	fi
+
 	install_node_pty
 	finalize_app_asar
 	if [[ $build_format != 'nix' ]]; then

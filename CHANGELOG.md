@@ -8,8 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) — 
 
 <!-- Updated automatically by check-claude-version; will be current at release time. -->
 
+### Added
+
+- Build-time patch verification now covers every patch suite, not just Cowork: `scripts/cowork-patch-markers.tsv` is superseded by `scripts/patch-markers.tsv` with an optional per-marker target-file column (tray, quick-window, claude-code, org-plugins, config guards, the WCO shim in `mainView.js`, the frame-fix wrapper wiring in `package.json`/`frame-fix-entry.js`, and the #567 autoUpdater no-op — 25 markers total). `build.sh` runs the check on the staging tree before repacking the asar, so local builds fail fast instead of relying on CI; the CI artifact check is unchanged.
+
 ### Fixed
 
+- The tray DBus-cleanup delay (250 ms after `Tray.destroy()`) silently stopped applying: its idempotency guard greped for `await new Promise.*setTimeout.*<trayVar>` which false-positives on minified single-line bundles (any unrelated `setTimeout` earlier on the line plus the tray variable anywhere after it), so the sed was skipped. The guard now keys on the exact injected sequence. Found by the new `tray-dbus-destroy-delay` patch marker on its first run against a shipped asar.
 - `claude-desktop --doctor` reports the installed version from the package manager that actually owns the install (probed via `rpm -qf` on the bundled Electron binary) instead of trusting `dpkg-query` alone — rpm installs on hosts that also carry a stale dpkg record (e.g. Fedora boxes with dpkg installed as a build tool) no longer show a months-old version with a PASS. ([#712](https://github.com/aaddrick/claude-desktop-debian/pull/712), fixes [#711](https://github.com/aaddrick/claude-desktop-debian/issues/711))
 
 ## [v2.0.19] — 2026-06-10

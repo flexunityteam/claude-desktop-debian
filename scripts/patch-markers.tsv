@@ -1,0 +1,66 @@
+# Patch markers — single source of truth for build-time verification.
+#
+# Format:
+#     <name><TAB><pcre_pattern><TAB><sample>[<TAB><file>]
+# Lines starting with '#' and blank lines are ignored.
+#
+# Each row names a post-patch fingerprint from the patch suite in
+# scripts/patches/ (or files staged by app-asar.sh). Both
+# verify-patches.sh and tests/verify-patches.bats consume this file,
+# so adding a marker here adds it to the runtime check and the test
+# matrix at the same time.
+#
+# Columns:
+#   name     — kebab-case id; surfaces in verify output and BATS names.
+#   pattern  — PCRE matched against the target file by `grep -P`.
+#   sample   — concrete string the pattern matches; BATS uses it to
+#              build positive and per-marker negative fixtures.
+#   file     — optional target path relative to the asar root
+#              (app.asar.contents/). Empty means the default
+#              .vite/build/index.js.
+#
+# Markers are hard requirements: if an upstream bump changes the code
+# shape so a patch legitimately no longer applies, the build fails
+# loudly and the patch must be re-anchored (or the row removed). A
+# silent skip is how the #515 duplicate-icon race regressed.
+#
+# --- Cowork suite (issue #559 D6, PR #555) ---------------------------------
+vmclient-log-gate	process\.platform==="linux"\)\s*\?\s*"vmClient \(TypeScript\)"	(F||process.platform==="linux")?"vmClient (TypeScript)"
+vm-assignment-linux-gate	process\.platform==="linux"\)\?\(?[\w$]+=\{vm:[\w$]+\}	(F||process.platform==="linux")?N={vm:M}
+unix-socket-path	process\.platform==="linux"\?\(process\.env\.XDG_RUNTIME_DIR\|\|"/tmp"\)\+"/cowork-vm-service\.sock"	process.platform==="linux"?(process.env.XDG_RUNTIME_DIR||"/tmp")+"/cowork-vm-service.sock"
+empty-linux-bundle-manifest	linux:\{x64:\[\],arm64:\[\]\}	,linux:{x64:[],arm64:[]}
+getdownloadstatus-suppression	getDownloadStatus\(\)\{return process\.platform==="linux"\?[\w$]+\.NotDownloaded	getDownloadStatus(){return process.platform==="linux"?Z.NotDownloaded
+econnrefused-on-linux	process\.platform==="linux"&&[\w$]+\.code==="ECONNREFUSED"	(n.code==="ENOENT"||process.platform==="linux"&&n.code==="ECONNREFUSED")
+cowork-daemon-pid	global\.__coworkDaemonPid	global.__coworkDaemonPid=_c.pid
+cowork-linux-daemon-shutdown	cowork-linux-daemon-shutdown	name:"cowork-linux-daemon-shutdown"
+sharedcwdpath-threadthrough	sharedCwdPath:this\.sessions\.get\(	sharedCwdPath:this.sessions.get(t)?.userSelectedFolders?.[0]
+asar-adddir-filter	\.filter\(_d=>!_d\.endsWith\("\.asar"\)\).*"--add-dir"	.filter(_d=>!_d.endsWith(".asar")))Y.push("--add-dir"
+asar-file-drop-guard	\.startsWith\("-"\)\s*&&\s*![\w$]+\.endsWith\("\.asar"\)	.startsWith("-")&&!i.endsWith(".asar")
+#
+# --- Tray suite (scripts/patches/tray.sh) ----------------------------------
+tray-mutex-guard	if\([\w$]+\._running\)\{[\w$]+\._pending=true;return\}	async function Ab(){if(Ab._running){Ab._pending=true;return}Ab._running=true;
+tray-dbus-destroy-delay	await new Promise\([\w$]+=>setTimeout\([\w$]+,250\)\)	J&&(J.destroy(),J=null,await new Promise(r=>setTimeout(r,250)))
+tray-dark-icon-selection	TrayIconTemplate-Dark\.png	:n=pA.nativeTheme.shouldUseDarkColors?"TrayIconTemplate-Dark.png":"TrayIconTemplate.png"
+tray-inplace-fastpath	\.setImage\([\w$]+\.nativeImage\.createFromPath\([\w$]+\)\);process\.platform!=="darwin"	if(J&&j!==false){J.setImage(pA.nativeImage.createFromPath(X));process.platform!=="darwin"&&J.setContextMenu(GA());return}
+#
+# --- Quick window (scripts/patches/quick-window.sh) ------------------------
+quick-window-kde-gate	\(process\.env\.XDG_CURRENT_DESKTOP\|\|""\)\.toLowerCase\(\)\.includes\("kde"\)	(process.env.XDG_CURRENT_DESKTOP||"").toLowerCase().includes("kde")?(Sa.blur(),Sa.hide()):Sa.hide()
+#
+# --- Claude Code Linux platform (scripts/patches/claude-code.sh) -----------
+claude-code-linux-platform	"linux-arm64":"linux-x64"	if(process.platform==="linux")return e==="arm64"?"linux-arm64":"linux-x64";throw
+#
+# --- Org plugins (scripts/patches/org-plugins.sh) --------------------------
+org-plugins-linux-path	case"linux":return"/etc/claude/org-plugins"	case"linux":return"/etc/claude/org-plugins";default:return null
+#
+# --- Config guards (scripts/patches/config.sh) -----------------------------
+config-mcpservers-merge	var _cdd_dc=JSON\.parse	try{var _cdd_dc=JSON.parse(require("fs").readFileSync(P,"utf8"));
+trusted-folder-asar-guard	addTrustedFolder\([\w$]+\)\{if\([\w$]+\.endsWith\("\.asar"\)\)return	async addTrustedFolder(i){if(i.endsWith(".asar"))return;
+#
+# --- WCO shim (scripts/patches/wco-shim.sh) --------------------------------
+wco-shim-inlined	__claude_wco_shim	// __claude_wco_shim — marker for patch_wco_shim idempotency check	.vite/build/mainView.js
+#
+# --- Frame-fix wrapper wiring (scripts/patches/app-asar.sh) ----------------
+autoupdater-noop-proxy	const autoUpdaterNoop = new Proxy\(	const autoUpdaterNoop = new Proxy({}, {	frame-fix-wrapper.js
+autoupdater-linux-gate	prop === 'autoUpdater' && process\.platform === 'linux'	if (prop === 'autoUpdater' && process.platform === 'linux') {	frame-fix-wrapper.js
+entry-requires-wrapper	require\('\./frame-fix-wrapper\.js'\)	require('./frame-fix-wrapper.js');	frame-fix-entry.js
+package-main-entry	"main":\s*"frame-fix-entry\.js"	"main": "frame-fix-entry.js",	package.json

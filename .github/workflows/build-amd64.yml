@@ -49,12 +49,14 @@ jobs:
           fi
           ./build.sh ${{ inputs.build_flags }} $TAG_FLAG
 
-      # Static-grep the shipped asar for the cowork patch markers
-      # defined in scripts/cowork-patch-markers.tsv (issue #559 D6,
-      # PR #555). Pinned to amd64-deb because the patched JS is
-      # identical across formats, so one verification per CI run is
-      # sufficient — no need to duplicate across the matrix.
-      - name: Verify cowork patches in shipped asar
+      # Static-grep the shipped asar for the patch markers defined
+      # in scripts/patch-markers.tsv (issue #559 D6, PR #555; covers
+      # all patch suites). build.sh already verifies the staging tree
+      # pre-pack; this re-checks the actual shipped artifact. Pinned
+      # to amd64-deb because the patched JS is identical across
+      # formats, so one verification per CI run is sufficient — no
+      # need to duplicate across the matrix.
+      - name: Verify patches in shipped asar
         if: inputs.artifact_suffix == 'deb'
         run: |
           deb_file=$(find . -maxdepth 1 -name 'claude-desktop_*amd64.deb' \

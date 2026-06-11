@@ -2,24 +2,29 @@
 #
 # verify-patches.sh
 #
-# Static-greps a patched index.js for the patch markers defined in
-# a TSV (defaults to scripts/cowork-patch-markers.tsv). Exits non-zero
-# on any miss and names the missing markers in the output.
+# Static-greps a patched asar tree for the patch markers defined in
+# a TSV (defaults to scripts/patch-markers.tsv). Exits non-zero on
+# any miss and names the missing markers in the output.
 #
 # Defends against silent half-patched asars (issue #559 D6, PR #555).
-# Reusable for non-cowork patch sets — pass any TSV of the same shape
-# via the second arg.
+# Covers every patch suite — cowork, tray, quick-window, claude-code,
+# org-plugins, config guards, the WCO shim in mainView.js, and the
+# frame-fix wrapper wiring — via an optional per-marker target file
+# column in the TSV (empty = .vite/build/index.js).
 #
 # Usage:
 #     verify-patches.sh <path> [markers-tsv]
 #
 # <path> may be:
-#   * a JavaScript file (the index.js itself)
 #   * an .asar archive (extracted on the fly via npx @electron/asar)
-#   * a directory containing app.asar.contents/.vite/build/index.js
+#   * a directory containing app.asar.contents/
+#   * a directory that itself is an asar-contents tree
+#     (contains .vite/build/index.js)
+#   * a JavaScript file — fixture/debug mode: only markers targeting
+#     the default index.js are checked; others are reported as SKIP
 #
 # Exit codes:
-#   0  — every marker present.
+#   0  — every applicable marker present.
 #   1  — usage error or input not found.
 #   2  — one or more markers missing (named on stderr).
 #
@@ -28,31 +33,39 @@ set -u
 IFS=$'\n\t'
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-default_markers_tsv="$script_dir/cowork-patch-markers.tsv"
+default_markers_tsv="$script_dir/patch-markers.tsv"
 markers_tsv="$default_markers_tsv"
+
+# Target file used when a TSV row omits the file column.
+default_target='.vite/build/index.js'
 
 usage() {
 	cat <<-EOF >&2
 		Usage: $(basename "$0") <path> [markers-tsv]
 
-		<path> may be a .js file, an .asar archive, or a directory
-		containing app.asar.contents/.vite/build/index.js. The script
-		greps for patch markers (default: cowork, PR #555 / issue #559
-		D6) and exits non-zero if any are missing.
+		<path> may be an .asar archive, a directory containing
+		app.asar.contents/, a directory that itself is an
+		asar-contents tree, or a single .js file (fixture mode —
+		markers targeting other files are skipped). The script
+		greps for patch markers and exits non-zero if any are
+		missing.
 
-		[markers-tsv] overrides the default TSV so the same script can
-		verify other patch sets.
+		[markers-tsv] overrides the default TSV so the same script
+		can verify other patch sets.
 	EOF
 }
 
-# Parse the marker TSV into three parallel arrays. Skips comments
-# and blank lines. Used by both the verify path here and by the
-# BATS test, which sources this script (see _is_sourced below) to
-# share parsing and avoid drift between the two consumers.
+# Parse the marker TSV into four parallel arrays. Skips comments
+# and blank lines. The optional 4th column names the target file
+# relative to the asar root; empty means $default_target. Used by
+# both the verify path here and by the BATS test, which sources
+# this script (see _is_sourced below) to share parsing and avoid
+# drift between the two consumers.
 load_markers() {
 	marker_names=()
 	marker_patterns=()
 	marker_samples=()
+	marker_files=()
 
 	if [[ ! -f $markers_tsv ]]; then
 		echo "verify-patches: marker file not found:" \
@@ -60,8 +73,8 @@ load_markers() {
 		return 1
 	fi
 
-	local name pattern sample
-	while IFS=$'\t' read -r name pattern sample; do
+	local name pattern sample file
+	while IFS=$'\t' read -r name pattern sample file; do
 		[[ -z $name || $name == '#'* ]] && continue
 		if [[ -z ${pattern:-} || -z ${sample:-} ]]; then
 			echo "verify-patches: malformed row '$name'" \
@@ -71,6 +84,7 @@ load_markers() {
 		marker_names+=("$name")
 		marker_patterns+=("$pattern")
 		marker_samples+=("$sample")
+		marker_files+=("${file:-$default_target}")
 	done < "$markers_tsv"
 
 	if [[ ${#marker_names[@]} -eq 0 ]]; then
@@ -79,9 +93,11 @@ load_markers() {
 	fi
 }
 
-# Resolve the input path to an actual index.js. For .asar inputs,
-# extracts to a temp dir and echoes the inner index.js path. The
-# caller cleans up via cleanup_tmp.
+# Resolve the input path to a scan target. Sets:
+#   scan_mode — 'root' (directory tree) or 'file' (single file)
+#   scan_path — the root directory or the single file
+# For .asar inputs, extracts to a temp dir. The caller cleans up
+# via cleanup_tmp.
 tmp_extract_dir=''
 cleanup_tmp() {
 	if [[ -n $tmp_extract_dir && -d $tmp_extract_dir ]]; then
@@ -90,8 +106,10 @@ cleanup_tmp() {
 }
 trap cleanup_tmp EXIT
 
-resolve_index_js() {
+resolve_scan_target() {
 	local input="$1"
+	scan_mode=''
+	scan_path=''
 
 	if [[ ! -e $input ]]; then
 		echo "verify-patches: not found: $input" >&2
@@ -99,13 +117,18 @@ resolve_index_js() {
 	fi
 
 	if [[ -d $input ]]; then
-		local candidate="$input/app.asar.contents/.vite/build/index.js"
-		if [[ -f $candidate ]]; then
-			printf '%s\n' "$candidate"
+		if [[ -d "$input/app.asar.contents" ]]; then
+			scan_mode='root'
+			scan_path="$input/app.asar.contents"
 			return 0
 		fi
-		echo "verify-patches: directory does not contain" \
-			"app.asar.contents/.vite/build/index.js: $input" >&2
+		if [[ -f "$input/$default_target" ]]; then
+			scan_mode='root'
+			scan_path="$input"
+			return 0
+		fi
+		echo "verify-patches: directory contains neither" \
+			"app.asar.contents/ nor $default_target: $input" >&2
 		return 1
 	fi
 
@@ -122,19 +145,20 @@ resolve_index_js() {
 				"$input" >&2
 			return 1
 		fi
-		local extracted="$tmp_extract_dir/.vite/build/index.js"
-		if [[ ! -f $extracted ]]; then
+		if [[ ! -f "$tmp_extract_dir/$default_target" ]]; then
 			echo 'verify-patches: extracted asar lacks' \
-				'.vite/build/index.js' >&2
+				"$default_target" >&2
 			return 1
 		fi
-		printf '%s\n' "$extracted"
+		scan_mode='root'
+		scan_path="$tmp_extract_dir"
 		return 0
 	fi
 
-	# Treat as a JS file (.js or any other extension) — let grep
-	# decide whether the contents are sensible.
-	printf '%s\n' "$input"
+	# Treat as a single file (fixture/debug mode) — only markers
+	# targeting the default index.js apply.
+	scan_mode='file'
+	scan_path="$input"
 }
 
 main() {
@@ -154,8 +178,7 @@ main() {
 		markers_tsv="$2"
 	fi
 
-	local index_js
-	if ! index_js="$(resolve_index_js "$1")"; then
+	if ! resolve_scan_target "$1"; then
 		return 1
 	fi
 
@@ -163,12 +186,30 @@ main() {
 		return 1
 	fi
 
-	echo "Verifying patch markers in: $index_js"
+	echo "Verifying patch markers in: $scan_path ($scan_mode mode)"
 	echo "Marker source: $markers_tsv"
 
-	local i missing_names=()
+	local i target missing_names=() skipped=0
 	for i in "${!marker_names[@]}"; do
-		if grep -qP -- "${marker_patterns[$i]}" "$index_js"; then
+		if [[ $scan_mode == 'file' ]]; then
+			if [[ ${marker_files[$i]} != "$default_target" ]]; then
+				printf '  SKIP %s (targets %s; single-file input)\n' \
+					"${marker_names[$i]}" "${marker_files[$i]}"
+				skipped=$((skipped + 1))
+				continue
+			fi
+			target="$scan_path"
+		else
+			target="$scan_path/${marker_files[$i]}"
+			if [[ ! -f $target ]]; then
+				printf '  MISS %s (target file not found: %s)\n' \
+					"${marker_names[$i]}" "${marker_files[$i]}" >&2
+				missing_names+=("${marker_names[$i]}")
+				continue
+			fi
+		fi
+
+		if grep -qP -- "${marker_patterns[$i]}" "$target"; then
 			printf '  OK   %s\n' "${marker_names[$i]}"
 		else
 			printf '  MISS %s\n' "${marker_names[$i]}" >&2
@@ -184,8 +225,8 @@ main() {
 		return 2
 	fi
 
-	printf '\nAll %d patch markers present.\n' \
-		"${#marker_names[@]}"
+	printf '\nAll %d applicable patch markers present (%d skipped).\n' \
+		"$(( ${#marker_names[@]} - skipped ))" "$skipped"
 	return 0
 }
 

@@ -58,9 +58,14 @@ patch_tray_menu_handler() {
 		echo "  Added trailing-edge mutex guard to ${tray_func}()"
 	fi
 
-	# Add DBus cleanup delay after tray destroy
+	# Add DBus cleanup delay after tray destroy.
+	# Idempotency keys on the exact injected sequence — a loose
+	# `await new Promise.*setTimeout.*VAR` grep false-positives on
+	# minified single-line bundles (any unrelated setTimeout earlier
+	# on the line + the tray var anywhere after it), silently
+	# skipping the patch.
 	tray_var_re="${tray_var//\$/\\$}"
-	if ! grep -q "await new Promise.*setTimeout.*${tray_var_re}" "$index_js"; then
+	if ! grep -qF "${tray_var}=null,await new Promise(r=>setTimeout(r,250))" "$index_js"; then
 		sed -i -E "s/${tray_var_re}\s*\&\&\s*\(\s*${tray_var_re}\.destroy\(\)\s*,\s*${tray_var_re}\s*=\s*null\s*\)/${tray_var}\&\&(${tray_var}.destroy(),${tray_var}=null,await new Promise(r=>setTimeout(r,250)))/g" \
 			"$index_js"
 		echo "  Added DBus cleanup delay after $tray_var.destroy()"

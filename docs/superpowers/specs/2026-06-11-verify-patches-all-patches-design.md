@@ -55,7 +55,8 @@ rows are valid unchanged.
 - Each marker greps `<root>/<file>`; a missing target file counts as a
   MISS naming the file.
 
-### New markers (15 rows total beyond the existing 11)
+### New markers (14 rows beyond the existing 11; the planned
+### `add-dir-asar-filter` already existed as `asar-adddir-filter`)
 
 | Marker | File | Fingerprint |
 |---|---|---|
@@ -68,7 +69,6 @@ rows are valid unchanged.
 | org-plugins-linux-path | index.js | `case"linux":return"/etc/claude/org-plugins"` |
 | config-mcpservers-merge | index.js | `var _cdd_dc=JSON\.parse` |
 | trusted-folder-asar-guard | index.js | `addTrustedFolder\([\w$]+\)\{if\([\w$]+\.endsWith\("\.asar"\)\)return` |
-| add-dir-asar-filter | index.js | `\.filter\(_d=>!_d\.endsWith\("\.asar"\)\)` |
 | wco-shim-inlined | mainView.js | `__claude_wco_shim` |
 | autoupdater-noop-proxy | frame-fix-wrapper.js | `const autoUpdaterNoop = new Proxy\(` |
 | autoupdater-linux-gate | frame-fix-wrapper.js | `prop === 'autoUpdater' && process\.platform === 'linux'` |
@@ -105,8 +105,8 @@ verified, non-default markers reported as SKIP).
 ## Verification plan
 
 1. `bats tests/verify-patches.bats` — all positive/negative/SKIP paths.
-2. `./scripts/verify-patches.sh /usr/lib/claude-desktop/node_modules/electron/dist/resources/app.asar`
-   against the installed 1.11847.5 package — all 26 markers green.
+2. `./scripts/verify-patches.sh` against a freshly built deb's
+   app.asar — all 25 markers green.
 3. Full `./build.sh --build deb` — build passes with the new gate wired
    in.
 4. `shellcheck scripts/verify-patches.sh`.

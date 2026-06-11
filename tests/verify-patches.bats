@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
 #
 # verify-patches.bats
-# Tests for scripts/verify-patches.sh — the post-build static grep
-# that confirms patch markers (default: cowork, issue #559 D6 / PR
-# #555) are present in the shipped index.js.
+# Tests for scripts/verify-patches.sh — the build-time static grep
+# that confirms patch markers (issue #559 D6 / PR #555, extended to
+# all patch suites) are present in the patched asar tree.
 #
 # Both these tests and the verify script consume the marker list from
-# scripts/cowork-patch-markers.tsv, so adding a marker there
-# automatically expands the test matrix below.
+# scripts/patch-markers.tsv, so adding a marker there automatically
+# expands the test matrix below.
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BATS_TEST_FILENAME}")" && pwd)"
@@ -30,16 +30,38 @@ teardown() {
 	fi
 }
 
-# Build a fixture index.js containing every sample. If $1 is given,
-# the marker with that name is omitted (used to drive the missing-
-# marker negative tests).
-write_fixture() {
+# Build a fixture asar-contents tree containing every sample, written
+# to the file each marker targets. If $1 is given, the marker with
+# that name is omitted (used to drive the missing-marker negative
+# tests). Echoes the staging dir (the parent of app.asar.contents/).
+write_fixture_tree() {
 	local omit="${1:-}"
+	local staging="$TEST_TMP/staging"
+	local root="$staging/app.asar.contents"
+	rm -rf "$staging"
+	local i target
+	for i in "${!marker_names[@]}"; do
+		target="$root/${marker_files[$i]}"
+		mkdir -p "$(dirname "$target")"
+		# Touch the target even when omitting the sample, so the
+		# negative test exercises a pattern miss rather than a
+		# missing file.
+		: >> "$target"
+		if [[ ${marker_names[$i]} != "$omit" ]]; then
+			printf '%s\n' "${marker_samples[$i]}" >> "$target"
+		fi
+	done
+	printf '%s\n' "$staging"
+}
+
+# Build a single-file fixture containing the samples of every marker
+# that targets the default index.js (the legacy input shape).
+write_fixture_file() {
 	local fixture="$TEST_TMP/index.js"
 	: > "$fixture"
 	local i
 	for i in "${!marker_names[@]}"; do
-		if [[ ${marker_names[$i]} != "$omit" ]]; then
+		if [[ ${marker_files[$i]} == "$default_target" ]]; then
 			printf '%s\n' "${marker_samples[$i]}" >> "$fixture"
 		fi
 	done
@@ -64,24 +86,37 @@ write_fixture() {
 	done
 }
 
-@test "markers file: at least 10 markers loaded" {
-	[[ "${#marker_names[@]}" -ge 10 ]] || {
-		echo "expected >= 10 markers, got ${#marker_names[@]}"
+@test "markers file: at least 20 markers loaded" {
+	[[ "${#marker_names[@]}" -ge 20 ]] || {
+		echo "expected >= 20 markers, got ${#marker_names[@]}"
+		return 1
+	}
+}
+
+@test "markers file: covers non-default target files" {
+	local i non_default=0
+	for i in "${!marker_files[@]}"; do
+		if [[ ${marker_files[$i]} != "$default_target" ]]; then
+			non_default=$((non_default + 1))
+		fi
+	done
+	[[ "$non_default" -ge 4 ]] || {
+		echo "expected >= 4 non-default-file markers, got $non_default"
 		return 1
 	}
 }
 
 # =============================================================================
-# Positive path: full fixture passes
+# Positive path: full fixture tree passes
 # =============================================================================
 
 @test "verify: exits 0 when every marker present" {
-	local fixture
-	fixture="$(write_fixture)"
+	local staging
+	staging="$(write_fixture_tree)"
 
-	run "$VERIFY_SH" "$fixture"
+	run "$VERIFY_SH" "$staging"
 	[[ "$status" -eq 0 ]] || {
-		echo 'verify rejected a fully-marked fixture'
+		echo 'verify rejected a fully-marked fixture tree'
 		echo "$output"
 		return 1
 	}
@@ -93,16 +128,28 @@ write_fixture() {
 	}
 }
 
+@test "verify: accepts the asar-contents dir itself as input" {
+	local staging
+	staging="$(write_fixture_tree)"
+
+	run "$VERIFY_SH" "$staging/app.asar.contents"
+	[[ "$status" -eq 0 ]] || {
+		echo 'verify rejected asar-contents-shaped input'
+		echo "$output"
+		return 1
+	}
+}
+
 # =============================================================================
 # Negative path: per-marker missing fixture
 # =============================================================================
 
 @test "verify: exits 2 and names the missing marker (each)" {
-	local name fixture failures=0
+	local name staging failures=0
 	for name in "${marker_names[@]}"; do
-		fixture="$(write_fixture "$name")"
+		staging="$(write_fixture_tree "$name")"
 
-		run "$VERIFY_SH" "$fixture"
+		run "$VERIFY_SH" "$staging"
 		if [[ "$status" -ne 2 ]]; then
 			echo "missing $name should exit 2, got $status"
 			echo "$output"
@@ -117,26 +164,57 @@ write_fixture() {
 	[[ "$failures" -eq 0 ]]
 }
 
-# =============================================================================
-# Input shapes
-# =============================================================================
-
-@test "verify: accepts a directory containing the asar layout" {
-	local layout="$TEST_TMP/staging/app.asar.contents/.vite/build"
-	mkdir -p "$layout"
-	: > "$layout/index.js"
-	local sample
-	for sample in "${marker_samples[@]}"; do
-		printf '%s\n' "$sample" >> "$layout/index.js"
+@test "verify: exits 2 when a marker's target file is absent" {
+	local staging
+	staging="$(write_fixture_tree)"
+	# Remove a non-default target file entirely — should MISS with
+	# the file named, not crash.
+	local i removed=''
+	for i in "${!marker_files[@]}"; do
+		if [[ ${marker_files[$i]} != "$default_target" ]]; then
+			rm -f "$staging/app.asar.contents/${marker_files[$i]}"
+			removed="${marker_files[$i]}"
+			break
+		fi
 	done
+	[[ -n "$removed" ]] || skip 'no non-default-file markers in TSV'
 
-	run "$VERIFY_SH" "$TEST_TMP/staging"
+	run "$VERIFY_SH" "$staging"
+	[[ "$status" -eq 2 ]]
+	[[ "$output" == *'target file not found'* ]]
+}
+
+# =============================================================================
+# Single-file input (fixture/debug mode)
+# =============================================================================
+
+@test "verify: single-file input checks index.js markers, skips others" {
+	local fixture
+	fixture="$(write_fixture_file)"
+
+	run "$VERIFY_SH" "$fixture"
 	[[ "$status" -eq 0 ]] || {
-		echo 'verify rejected directory-shaped input'
+		echo 'verify rejected a fully-marked single-file fixture'
 		echo "$output"
 		return 1
 	}
+
+	# Every non-default-file marker must be reported as SKIP, not OK.
+	local i
+	for i in "${!marker_names[@]}"; do
+		if [[ ${marker_files[$i]} != "$default_target" ]]; then
+			grep -q "SKIP ${marker_names[$i]}" <<< "$output" || {
+				echo "expected SKIP for ${marker_names[$i]}"
+				echo "$output"
+				return 1
+			}
+		fi
+	done
 }
+
+# =============================================================================
+# Input shapes
+# =============================================================================
 
 @test "verify: rejects missing path with exit 1" {
 	run "$VERIFY_SH" "$TEST_TMP/does-not-exist.js"
