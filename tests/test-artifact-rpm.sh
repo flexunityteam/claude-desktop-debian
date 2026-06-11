@@ -102,6 +102,9 @@ assert_contains '/usr/bin/claude-desktop' 'launcher-common.sh' \
 	"Launcher sources launcher-common.sh"
 assert_contains '/usr/bin/claude-desktop' 'run_doctor' \
 	"Launcher references run_doctor"
+assert_contains '/usr/bin/claude-desktop' 'run_mcp_cli' \
+	"Launcher references run_mcp_cli"
+assert_file_exists '/usr/lib/claude-desktop/mcp-cli.sh'
 assert_contains '/usr/bin/claude-desktop' 'build_electron_args' \
 	"Launcher calls build_electron_args"
 

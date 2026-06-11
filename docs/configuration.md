@@ -9,6 +9,35 @@ Model Context Protocol settings are stored in:
 ~/.config/Claude/claude_desktop_config.json
 ```
 
+### Managing MCP servers from the command line
+
+The launcher ships a small CLI that edits the `mcpServers` section
+safely — everything else in the file (preferences, cowork paths,
+device pairings) is left untouched:
+
+```bash
+claude-desktop --mcp list
+claude-desktop --mcp add <name> <command> [args...]
+claude-desktop --mcp remove <name>
+
+# Example: add the filesystem server
+claude-desktop --mcp add fs npx -y @modelcontextprotocol/server-filesystem ~/Documents
+```
+
+Safety properties:
+
+- The config is parsed before every write — if the JSON is broken the
+  CLI refuses to touch it (so it can never make a corrupt config worse).
+- Writes are atomic (tmp file + rename) and a `.bak` of the previous
+  version is kept next to the config.
+- `add` refuses to overwrite an existing name; `remove` it first.
+- Runs on the bundled Electron (`ELECTRON_RUN_AS_NODE`), so no system
+  Node.js or Python is required.
+
+Environment variables for a server (API keys etc.) are not settable
+from the CLI — add them to the server's `"env"` object in the file by
+hand. Restart Claude Desktop after any change.
+
 ## Environment Variables
 
 | Variable | Default | Description |

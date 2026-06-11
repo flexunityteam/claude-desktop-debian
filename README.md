@@ -159,6 +159,8 @@ Model Context Protocol settings are stored in:
 ~/.config/Claude/claude_desktop_config.json
 ```
 
+MCP servers can be managed from the command line — `claude-desktop --mcp list|add|remove` edits `claude_desktop_config.json` with JSON validation, atomic writes, and a `.bak` of the previous version. See [docs/configuration.md](docs/configuration.md#managing-mcp-servers-from-the-command-line).
+
 For additional configuration options including environment variables and Wayland support, see [docs/configuration.md](docs/configuration.md).
 
 ## Troubleshooting

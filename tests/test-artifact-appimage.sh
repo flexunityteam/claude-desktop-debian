@@ -99,6 +99,9 @@ assert_contains "$appdir/AppRun" 'launcher-common.sh' \
 	"AppRun sources launcher-common.sh"
 assert_contains "$appdir/AppRun" 'run_doctor' \
 	"AppRun references run_doctor"
+assert_contains "$appdir/AppRun" 'run_mcp_cli' \
+	"AppRun references run_mcp_cli"
+assert_file_exists "$appdir/usr/lib/claude-desktop/mcp-cli.sh"
 assert_contains "$appdir/AppRun" 'build_electron_args' \
 	"AppRun calls build_electron_args"
 

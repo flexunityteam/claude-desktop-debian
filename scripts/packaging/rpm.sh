@@ -91,6 +91,14 @@ if [[ "\${1:-}" == '--doctor' ]]; then
 	exit \$?
 fi
 
+# Handle --mcp subcommands (list/add/remove MCP servers in config)
+if [[ "\${1:-}" == '--mcp' ]]; then
+	shift
+	local_electron_path="/usr/lib/$package_name/node_modules/electron/dist/electron"
+	run_mcp_cli "\$local_electron_path" "\$@"
+	exit \$?
+fi
+
 # Setup logging and environment
 setup_logging || exit 1
 setup_electron_env
@@ -258,6 +266,7 @@ cp -r $app_staging_dir/app.asar.unpacked %{buildroot}/usr/lib/$package_name/node
 cp $(dirname "$script_dir")/launcher-common.sh %{buildroot}/usr/lib/$package_name/
 sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "%{buildroot}/usr/lib/$package_name/launcher-common.sh"
 cp $(dirname "$script_dir")/doctor.sh %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/mcp-cli.sh %{buildroot}/usr/lib/$package_name/
 
 # Install desktop entry
 install -Dm 644 $staging_dir/claude-desktop.desktop %{buildroot}/usr/share/applications/claude-desktop.desktop

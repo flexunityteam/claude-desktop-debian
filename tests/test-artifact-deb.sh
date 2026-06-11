@@ -119,8 +119,25 @@ assert_contains '/usr/bin/claude-desktop' 'launcher-common.sh' \
 	"Launcher sources launcher-common.sh"
 assert_contains '/usr/bin/claude-desktop' 'run_doctor' \
 	"Launcher references run_doctor"
+assert_contains '/usr/bin/claude-desktop' 'run_mcp_cli' \
+	"Launcher references run_mcp_cli"
+assert_file_exists '/usr/lib/claude-desktop/mcp-cli.sh'
 assert_contains '/usr/bin/claude-desktop' 'build_electron_args' \
 	"Launcher calls build_electron_args"
+
+# --- MCP CLI smoke test ---
+# list must run on the bundled Electron (ELECTRON_RUN_AS_NODE) and
+# exit 0 without a display. Use an isolated config dir so the test
+# never touches a real user config.
+mcp_tmp=$(mktemp -d)
+mcp_out=$(XDG_CONFIG_HOME="$mcp_tmp" /usr/bin/claude-desktop --mcp list 2>&1)
+mcp_exit=$?
+rm -rf "$mcp_tmp"
+if [[ $mcp_exit -eq 0 && $mcp_out == *'No MCP servers configured'* ]]; then
+	pass "--mcp list runs on bundled Electron (exit 0)"
+else
+	fail "--mcp list failed (exit $mcp_exit): $mcp_out"
+fi
 
 # --- App contents (asar) ---
 resources_dir='/usr/lib/claude-desktop/node_modules/electron/dist/resources'

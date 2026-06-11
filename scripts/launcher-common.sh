@@ -668,3 +668,12 @@ setup_electron_env() {
 #===============================================================================
 # shellcheck source=scripts/doctor.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/doctor.sh"
+
+#===============================================================================
+# MCP Server CLI
+#
+# run_mcp_cli lives in mcp-cli.sh alongside this file, installed next to
+# launcher-common.sh by every packaging target — same split as doctor.sh.
+#===============================================================================
+# shellcheck source=scripts/mcp-cli.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mcp-cli.sh"
