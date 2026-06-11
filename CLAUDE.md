@@ -72,6 +72,23 @@ Shell scripts are checked with `shellcheck` and GitHub Actions workflows with `a
    - Always add a comment explaining why the disable is needed
 3. **Run `/lint` to check manually** - Use this skill to check for issues before pushing
 
+## Testing
+
+Unit tests are BATS suites in [`tests/`](tests/), one per subsystem (launcher, doctor, mcp-cli, cowork-setup, deb-scriptlets, verify-patches, cowork backend detection, …). Artifact tests validate a built package end-to-end and run in CI after every build.
+
+```bash
+bats tests/                    # all unit suites
+bats tests/doctor.bats         # a single suite
+shellcheck scripts/*.sh scripts/packaging/*.sh tests/*.sh
+codespell scripts/ tests/ docs/ README.md CHANGELOG.md
+# After a build — run unprivileged (Electron refuses root without --no-sandbox):
+bash tests/test-artifact-deb.sh ./claude-desktop_*.deb
+```
+
+- **New shell logic ships with a BATS suite.** Put system probes (`/dev/*`, `/proc/*`, `command -v`) in small standalone functions so tests can shadow them and run deterministically on any machine — see [`tests/cowork-setup.bats`](tests/cowork-setup.bats) and [`tests/doctor.bats`](tests/doctor.bats) for the pattern, including the shadow-`command` trick for hiding host binaries.
+- **Patch changes need a marker row.** Build-time patch verification ([`scripts/verify-patches.sh`](scripts/verify-patches.sh) reading [`scripts/patch-markers.tsv`](scripts/patch-markers.tsv)) runs inside `build.sh` and fails the build when an injected fingerprint is missing — add/update a marker whenever you add or change a patch.
+- The Playwright harness lives in [`tools/test-harness/`](tools/test-harness/); the distro/DE test matrix and case docs live in [`docs/testing/`](docs/testing/).
+
 ## Docs
 
 - **One declarative sentence then a code block or list at the top of every page.** No "In this guide we will explore…" preamble. See [`docs/styleguides/docs_styleguide.md`](docs/styleguides/docs_styleguide.md).

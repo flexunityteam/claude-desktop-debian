@@ -38,6 +38,7 @@ The [`docs/learnings/`](docs/learnings/) directory contains hard-won technical k
 - [`linux-topbar-shim.md`](docs/learnings/linux-topbar-shim.md) — why claude.ai's in-app topbar is missing on Linux, the four gates that hide it, why the upstream `frame:false` + WCO config has unclickable buttons on X11 (Chromium-level implicit drag region), and the resolution: hybrid mode (system frame + UA-spoof shim → stacked layout, full button functionality)
 - [`test-harness-electron-hooks.md`](docs/learnings/test-harness-electron-hooks.md) — why constructor-level `BrowserWindow` wraps are silently bypassed by `frame-fix-wrapper`'s Proxy, and the prototype-method hook pattern that works (used by the Quick Entry test runners)
 - [`test-harness-ax-tree-walker.md`](docs/learnings/test-harness-ax-tree-walker.md) — five non-obvious traps in the v7 fingerprint walker after the AX-tree migration: AX-enable async lag, navigateTo-to-same-URL no-op, claude.ai's flat `dialog>button[]` lists, the `more options for X` per-row shape, and sidebar virtualization vs the lookup-failure threshold
+- [`wayland-global-shortcuts-portal.md`](docs/learnings/wayland-global-shortcuts-portal.md) — why Quick Entry's hotkey is focus-bound on GNOME Wayland (mutter dropped XWayland global key grabs), the native-Wayland + `GlobalShortcutsPortal` launcher change (opt-in via `CLAUDE_USE_WAYLAND=1`; fixes GNOME ≤49, default GNOME stays on XWayland), the "only the last `--enable-features` switch wins → merge into one flag" trap, the tri-state `CLAUDE_USE_WAYLAND` escape hatch, and the proof that GNOME 50 / xdg-desktop-portal ≥1.20 is still blocked upstream because Electron/Chromium never calls the host `Registry.Register` app-id handshake ([electron#51875](https://github.com/electron/electron/issues/51875)); wlroots (Niri/Sway/Hyprland) lack a portal GlobalShortcuts backend entirely
 - [`patching-minified-js.md`](docs/learnings/patching-minified-js.md) — general lessons from maintaining a long-lived patch suite against an actively re-minified upstream: anchor selection (literals over identifiers), the `\w` vs `$` identifier-capture trap, beautified false-negatives, idempotency guards, multi-site coordination, non-unique anchor disambiguation, and the SHA-256-pinned hypothesis-verification recipe
 
 ## Code Style
@@ -70,6 +71,23 @@ Shell scripts are checked with `shellcheck` and GitHub Actions workflows with `a
    - The pattern is intentional and unavoidable
    - Always add a comment explaining why the disable is needed
 3. **Run `/lint` to check manually** - Use this skill to check for issues before pushing
+
+## Testing
+
+Unit tests are BATS suites in [`tests/`](tests/), one per subsystem (launcher, doctor, mcp-cli, cowork-setup, deb-scriptlets, verify-patches, cowork backend detection, …). Artifact tests validate a built package end-to-end and run in CI after every build.
+
+```bash
+bats tests/                    # all unit suites
+bats tests/doctor.bats         # a single suite
+shellcheck scripts/*.sh scripts/packaging/*.sh tests/*.sh
+codespell scripts/ tests/ docs/ README.md CHANGELOG.md
+# After a build — run unprivileged (Electron refuses root without --no-sandbox):
+bash tests/test-artifact-deb.sh ./claude-desktop_*.deb
+```
+
+- **New shell logic ships with a BATS suite.** Put system probes (`/dev/*`, `/proc/*`, `command -v`) in small standalone functions so tests can shadow them and run deterministically on any machine — see [`tests/cowork-setup.bats`](tests/cowork-setup.bats) and [`tests/doctor.bats`](tests/doctor.bats) for the pattern, including the shadow-`command` trick for hiding host binaries.
+- **Patch changes need a marker row.** Build-time patch verification ([`scripts/verify-patches.sh`](scripts/verify-patches.sh) reading [`scripts/patch-markers.tsv`](scripts/patch-markers.tsv)) runs inside `build.sh` and fails the build when an injected fingerprint is missing — add/update a marker whenever you add or change a patch.
+- The Playwright harness lives in [`tools/test-harness/`](tools/test-harness/); the distro/DE test matrix and case docs live in [`docs/testing/`](docs/testing/).
 
 ## Docs
 
