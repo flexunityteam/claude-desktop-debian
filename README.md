@@ -135,6 +135,19 @@ Or add to your NixOS configuration:
 
 Download the latest `.deb`, `.rpm`, or `.AppImage` from the [Releases page](https://github.com/aaddrick/claude-desktop-debian/releases).
 
+#### Updating the AppImage
+
+Release AppImages embed [zsync](https://github.com/AppImageCommunity/AppImageUpdate) update information pointing at the latest GitHub release, so you don't have to re-download the whole file:
+
+```bash
+# Using AppImageUpdate (downloads only the changed blocks)
+appimageupdatetool claude-desktop-*.AppImage
+```
+
+[Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) reads the same embedded metadata and shows an update button for managed AppImages. Re-downloading from the Releases page always works as a fallback. (Locally built AppImages don't embed update info — rebuild to update.)
+
+> **Note:** If the AppImage fails to start with a `libfuse.so.2` error (common on Ubuntu 24.04+), see [docs/troubleshooting.md](docs/troubleshooting.md#appimage-fails-to-start-libfuse-missing).
+
 ### Building from Source
 
 See [docs/building.md](docs/building.md) for detailed build instructions.

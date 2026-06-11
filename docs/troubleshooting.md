@@ -221,6 +221,45 @@ Credit: workaround discovered and confirmed by
 and
 [#599](https://github.com/aaddrick/claude-desktop-debian/pull/599).
 
+### AppImage Fails to Start (libfuse missing)
+
+The AppImage runtime needs `libfuse.so.2` to mount itself. On Ubuntu
+24.04+ (and other recent distros) libfuse2 is no longer installed by
+default, so launching the AppImage fails before any app code runs:
+
+```
+dlopen(): error loading libfuse.so.2
+
+AppImages require FUSE to run.
+You might still be able to extract the contents of this AppImage
+if you run it with the --appimage-extract option.
+```
+
+**Fix:** install the FUSE 2 compatibility library:
+
+```bash
+# Ubuntu 24.04+ (libfuse2 was renamed for the 64-bit time_t transition)
+sudo apt install libfuse2t64
+
+# Ubuntu 22.04 / Debian 12 and earlier
+sudo apt install libfuse2
+
+# Fedora
+sudo dnf install fuse fuse-libs
+```
+
+**Workaround without installing anything:** run the AppImage with
+extraction instead of FUSE mounting (slower startup, no root needed):
+
+```bash
+./claude-desktop-*.AppImage --appimage-extract-and-run
+```
+
+This is an AppImage-format limitation, not specific to this project —
+the runtime fails before this repo's launcher code runs, which is why
+no friendlier in-app error can be shown. The `.deb`/`.rpm` packages
+don't use FUSE and are unaffected.
+
 ### AppImage Sandbox Warning
 
 AppImages run with `--no-sandbox` due to electron's chrome-sandbox requiring root privileges for unprivileged namespace creation. This is a known limitation of AppImage format with Electron applications.
@@ -307,57 +346,6 @@ To customize the profile on a `.deb` install, put overrides in
 `/etc/apparmor.d/local/claude-desktop` — they survive upgrades; direct
 edits to the managed profile are rewritten by the `postinst` on every
 upgrade.
-
-Don't use `--no-sandbox` as a permanent fix on the `.deb` — it disables the
-Chromium sandbox entirely, which the package is built to keep. (AppImage
-builds already launch with `--no-sandbox` because they can't ship a SUID
-helper, so they never hit this crash.)
-
-**Security note:** the profile grants the unconfined profile plus the
-`userns` capability to the bundled Electron binary only, not system-wide —
-narrower than relaxing `kernel.apparmor_restrict_unprivileged_userns`
-globally, which would lift the restriction for every program on the host.
-Review against your threat model before applying.
-
-### Claude Desktop crashes immediately on launch (Ubuntu 24.04+, AppArmor blocks user namespaces)
-
-The `.deb` handles this automatically — this section is for the rare case
-where it doesn't. Ubuntu 24.04+ sets
-`apparmor_restrict_unprivileged_userns=1`, blocking the user namespaces
-Chromium's sandbox needs (same root cause as the Cowork case above, but it
-kills the **main app** on startup before any window appears). The deb's
-`postinst` installs a scoped AppArmor profile
-(`/etc/apparmor.d/claude-desktop`) that grants `userns` to the bundled
-Electron binary only — exactly as the `google-chrome`, `code`, and `slack`
-packages do — so a normal install needs no action.
-
-You only need to act if the app still crashes on launch with:
-
-- `FATAL:sandbox/linux/services/credentials.cc:131] Check failed: . :
-  Permission denied (13)` in
-  `~/.cache/claude-desktop-debian/launcher.log` (the line number varies by
-  Electron version), and
-- a `Trace/breakpoint trap` / core dump (exit code 133).
-
-Run `sudo claude-desktop --doctor` first — the **User namespaces** check
-reports whether the profile is actually loaded into the kernel (reading the
-loaded set needs root; without `sudo` it can only confirm the profile is
-present on disk). To (re)install it manually:
-
-```bash
-sudo tee /etc/apparmor.d/claude-desktop <<'EOF'
-abi <abi/4.0>,
-include <tunables/global>
-
-profile claude-desktop /usr/lib/claude-desktop/node_modules/electron/dist/electron flags=(unconfined) {
-    userns,
-
-    include if exists <local/claude-desktop>
-}
-EOF
-
-sudo apparmor_parser -r /etc/apparmor.d/claude-desktop
-```
 
 Don't use `--no-sandbox` as a permanent fix on the `.deb` — it disables the
 Chromium sandbox entirely, which the package is built to keep. (AppImage

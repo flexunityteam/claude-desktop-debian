@@ -7,6 +7,7 @@ download URL from network requests.
 """
 
 import argparse
+import os
 import re
 import sys
 
@@ -14,10 +15,19 @@ import requests
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 
+# The claude.ai redirect endpoint embeds an opaque token that Anthropic
+# can rotate at any time, breaking URL resolution until this constant is
+# updated. CLAUDE_REDIRECT_TOKEN lets CI (or a contributor) override the
+# token without a code change while a fix PR is in flight.
+REDIRECT_TOKEN = os.environ.get(
+    "CLAUDE_REDIRECT_TOKEN",
+    "claudedotcom.v1.290130bf-1c36-4eb0-9a93-2410ca43ae53",
+)
+
 # Redirect URLs for each architecture
 REDIRECT_URLS = {
-    "amd64": "https://claude.ai/redirect/claudedotcom.v1.290130bf-1c36-4eb0-9a93-2410ca43ae53/api/desktop/win32/x64/exe/latest/redirect",
-    "arm64": "https://claude.ai/redirect/claudedotcom.v1.290130bf-1c36-4eb0-9a93-2410ca43ae53/api/desktop/win32/arm64/exe/latest/redirect",
+    "amd64": f"https://claude.ai/redirect/{REDIRECT_TOKEN}/api/desktop/win32/x64/exe/latest/redirect",
+    "arm64": f"https://claude.ai/redirect/{REDIRECT_TOKEN}/api/desktop/win32/arm64/exe/latest/redirect",
 }
 
 # User agent to appear as a regular browser
