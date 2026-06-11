@@ -246,40 +246,36 @@ EOF
 echo "AppStream metadata created at $appdata_file"
 
 
-# --- Get appimagetool ---
-appimagetool_path=''
+# --- Get appimagetool + static runtime ---
+# The modern appimagetool (AppImage/appimagetool repo) embeds the static
+# type2-runtime by default, which removes the libfuse2 requirement at
+# launch (matrix case S01: distros stopped shipping libfuse2 — Ubuntu
+# 24.04+, Fedora Atomic dropped it entirely). The legacy AppImageKit
+# tool this script used before embeds the old dynamically-linked
+# runtime that dlopens libfuse.so.2.
+#
+# A system appimagetool from PATH is deliberately NOT used: an old
+# AppImageKit install would silently reintroduce the libfuse2
+# dependency depending on the build host. The runtime is pinned and
+# fetched explicitly (--runtime-file) so the build fails loudly if the
+# download breaks, instead of letting appimagetool fetch it implicitly.
+case "$architecture" in
+	amd64) tool_arch='x86_64' ;;
+	arm64) tool_arch='aarch64' ;;
+	*)
+		echo "Unsupported architecture for appimagetool download: $architecture" >&2
+		exit 1
+		;;
+esac
 
-# Check system PATH first
-if command -v appimagetool &> /dev/null; then
-	appimagetool_path=$(command -v appimagetool)
-	echo "Found appimagetool in PATH: $appimagetool_path"
-fi
-
-# Check for previously downloaded versions
-for arch in x86_64 aarch64; do
-	[[ -n $appimagetool_path ]] && break
-	local_path="$work_dir/appimagetool-${arch}.AppImage"
-	if [[ -f $local_path ]]; then
-		appimagetool_path="$local_path"
-		echo "Found downloaded ${arch} appimagetool: $appimagetool_path"
-	fi
-done
-
-# Download if not found
-if [[ -z $appimagetool_path ]]; then
-	echo 'Downloading appimagetool...'
-	case "$architecture" in
-		amd64) tool_arch='x86_64' ;;
-		arm64) tool_arch='aarch64' ;;
-		*)
-			echo "Unsupported architecture for appimagetool download: $architecture" >&2
-			exit 1
-			;;
-	esac
-
-	appimagetool_url="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${tool_arch}.AppImage"
-	appimagetool_path="$work_dir/appimagetool-${tool_arch}.AppImage"
-
+# "static" in the cache name keeps stale AppImageKit downloads from
+# earlier builds of this script from being picked up.
+appimagetool_path="$work_dir/appimagetool-static-${tool_arch}.AppImage"
+if [[ -f $appimagetool_path ]]; then
+	echo "Found downloaded appimagetool: $appimagetool_path"
+else
+	echo 'Downloading appimagetool (static-runtime build)...'
+	appimagetool_url="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${tool_arch}.AppImage"
 	if wget -q -O "$appimagetool_path" "$appimagetool_url"; then
 		chmod +x "$appimagetool_path" || exit 1
 		echo "Downloaded appimagetool to $appimagetool_path"
@@ -288,6 +284,29 @@ if [[ -z $appimagetool_path ]]; then
 		rm -f "$appimagetool_path"
 		exit 1
 	fi
+fi
+
+runtime_path="$work_dir/type2-runtime-${tool_arch}"
+if [[ -f $runtime_path ]]; then
+	echo "Found downloaded static runtime: $runtime_path"
+else
+	echo 'Downloading static type2-runtime...'
+	runtime_url="https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${tool_arch}"
+	if wget -q -O "$runtime_path" "$runtime_url"; then
+		echo "Downloaded static runtime to $runtime_path"
+	else
+		echo "Failed to download static runtime from $runtime_url" >&2
+		rm -f "$runtime_path"
+		exit 1
+	fi
+fi
+
+# The static runtime must not reference libfuse.so.2 — that's the whole
+# point of the switch. Guard against upstream regressions or a corrupt
+# download before baking it into the artifact.
+if grep -qa 'libfuse\.so\.2' "$runtime_path"; then
+	echo 'Error: downloaded runtime references libfuse.so.2 — not the static type2-runtime?' >&2
+	exit 1
 fi
 
 # Normalize AppDir permissions before squashing. The staging copy above
@@ -313,7 +332,8 @@ if [[ $GITHUB_ACTIONS != 'true' ]]; then
 	echo 'Running locally - building AppImage without update information'
 	echo '(Update info and zsync files are only generated in GitHub Actions for releases)'
 
-	if ! "$appimagetool_path" "$appdir_path" "$output_path"; then
+	if ! "$appimagetool_path" --runtime-file "$runtime_path" \
+		"$appdir_path" "$output_path"; then
 		echo "Failed to build AppImage using $appimagetool_path" >&2
 		exit 1
 	fi
@@ -343,7 +363,8 @@ fi
 update_info="gh-releases-zsync|aaddrick|claude-desktop-debian|latest|claude-desktop-*-${architecture}.AppImage.zsync"
 echo "Update info: $update_info"
 
-if ! "$appimagetool_path" --updateinformation "$update_info" "$appdir_path" "$output_path"; then
+if ! "$appimagetool_path" --runtime-file "$runtime_path" \
+	--updateinformation "$update_info" "$appdir_path" "$output_path"; then
 	echo "Failed to build AppImage using $appimagetool_path" >&2
 	exit 1
 fi

@@ -32,11 +32,13 @@ jobs:
         run: |
           dnf install -y git findutils
 
+      # The static-runtime appimagetool only needs fusermount3 (fuse3),
+      # not the EOL libfuse2 — same requirement as the shipped AppImage.
       - name: Install FUSE for AppImageTool (Ubuntu)
         if: inputs.artifact_suffix != 'rpm'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2
+          sudo apt-get install -y fuse3
 
       - name: Make build script executable
         run: chmod +x ./build.sh

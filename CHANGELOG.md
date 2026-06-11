@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) — 
 
 <!-- Updated automatically by check-claude-version; will be current at release time. -->
 
+### Changed
+
+- The AppImage now embeds the static type2-runtime instead of the legacy AppImageKit runtime, removing the `libfuse.so.2` launch requirement (case-doc S01: Ubuntu 24.04+ stopped shipping libfuse2 by default and Fedora Atomic dropped it entirely; the only remaining FUSE need is the `fusermount3` helper from `fuse3`, installed by default on modern distros). The build downloads the modern `appimagetool` and a pinned runtime explicitly (`--runtime-file`), ignores any system appimagetool from PATH so an old AppImageKit install can't silently reintroduce the dependency, and refuses to build if the downloaded runtime references `libfuse.so.2`. The artifact test asserts the shipped runtime identifies as type2-runtime via `--appimage-version`.
+
 ### Added
 
 - MCP server CLI: `claude-desktop --mcp list|add|remove` manages the `mcpServers` section of `claude_desktop_config.json` from the terminal. The config is parsed before every write (broken JSON is refused untouched — the most common user-reported MCP failure is a hand-edit gone wrong), writes are atomic with a `.bak` of the previous version, and everything else in the file (preferences, cowork paths, device pairings) is preserved. Runs on the bundled Electron via `ELECTRON_RUN_AS_NODE`, so no system Node.js/Python is needed. Available in all four launchers (deb, RPM, AppImage, Nix).

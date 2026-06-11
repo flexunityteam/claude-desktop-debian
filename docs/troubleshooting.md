@@ -245,9 +245,18 @@ and
 
 ### AppImage Fails to Start (libfuse missing)
 
-The AppImage runtime needs `libfuse.so.2` to mount itself. On Ubuntu
+**Current releases:** the AppImage is built with the static
+type2-runtime, which does **not** need `libfuse.so.2`. It only needs
+the `fusermount3` helper from the `fuse3` package, which Ubuntu
+24.04+, Debian 12+, and Fedora all install by default. If you see a
+FUSE error with a current release, install `fuse3` (`sudo apt install
+fuse3` / `sudo dnf install fuse3`) or use the extraction workaround
+below.
+
+**Releases older than the static-runtime switch** used the legacy
+AppImage runtime, which dlopens `libfuse.so.2` at startup. On Ubuntu
 24.04+ (and other recent distros) libfuse2 is no longer installed by
-default, so launching the AppImage fails before any app code runs:
+default, so those AppImages fail before any app code runs:
 
 ```
 dlopen(): error loading libfuse.so.2
@@ -257,7 +266,8 @@ You might still be able to extract the contents of this AppImage
 if you run it with the --appimage-extract option.
 ```
 
-**Fix:** install the FUSE 2 compatibility library:
+**Fix for old releases** (or just update to a current one): install
+the FUSE 2 compatibility library:
 
 ```bash
 # Ubuntu 24.04+ (libfuse2 was renamed for the 64-bit time_t transition)
@@ -270,17 +280,15 @@ sudo apt install libfuse2
 sudo dnf install fuse fuse-libs
 ```
 
-**Workaround without installing anything:** run the AppImage with
-extraction instead of FUSE mounting (slower startup, no root needed):
+**Workaround without installing anything** (works on every release):
+run the AppImage with extraction instead of FUSE mounting (slower
+startup, no root needed):
 
 ```bash
 ./claude-desktop-*.AppImage --appimage-extract-and-run
 ```
 
-This is an AppImage-format limitation, not specific to this project —
-the runtime fails before this repo's launcher code runs, which is why
-no friendlier in-app error can be shown. The `.deb`/`.rpm` packages
-don't use FUSE and are unaffected.
+The `.deb`/`.rpm` packages don't use FUSE and are unaffected.
 
 ### AppImage Sandbox Warning
 

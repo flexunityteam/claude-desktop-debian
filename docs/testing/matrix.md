@@ -56,7 +56,7 @@ Status legend: `✓` pass · `✗` fail · `🔧` mitigated · `?` untested · `
 
 | ID | Test | Status | Notes |
 |----|------|--------|-------|
-| [S01](./cases/distribution.md#s01--appimage-launches-without-manual-libfuse2t64-install) | AppImage launches without manual `libfuse2t64` install | ✗ | Workaround documented; not yet filed |
+| [S01](./cases/distribution.md#s01--appimage-launches-without-manual-libfuse2t64-install) | AppImage launches without manual `libfuse2t64` install | ✓ | Fixed by the static type2-runtime switch — only `fusermount3` (fuse3, shipped by default) is needed; guarded by the artifact test's runtime probe |
 | [S02](./cases/distribution.md#s02--xdg_current_desktopubuntu-gnome-doesnt-break-de-detection) | `XDG_CURRENT_DESKTOP=ubuntu:GNOME` doesn't break DE detection | ? | — |
 | [S03](./cases/distribution.md#s03--deb-install-via-apt-pulls-all-required-runtime-deps) | DEB install via APT pulls all required runtime deps | ? | `Depends:` now declares the Electron system set (guarded by S03 spec + deb artifact test); fresh-VM first-launch still unverified |
 
@@ -166,7 +166,6 @@ Tests currently `✗` somewhere — investigation priority order:
 | [T06 / S11](./cases/shortcuts-and-input.md#s11--quick-entry-shortcut-fires-from-any-focus-on-wayland-mutter-xwayland-key-grab) | GNOME | mutter doesn't honour XWayland-side key grab |
 | [T06 / S14](./cases/shortcuts-and-input.md#s14--global-shortcuts-via-xdg-portal-work-on-niri) | Niri | `BindShortcuts` returns error code 5 |
 | [T07 / S13](./cases/tray-and-window-chrome.md#s13--hybrid-topbar-shim-survives-omarchys-ozone-wayland-env-exports) | Hypr-O | Hybrid topbar shim partial render under Omarchy's Ozone-Wayland env exports |
-| [S01](./cases/distribution.md#s01--appimage-launches-without-manual-libfuse2t64-install) | Ubuntu 24.04 | AppImage requires `libfuse2t64`; not auto-pulled |
 
 ## Notes on the current state
 

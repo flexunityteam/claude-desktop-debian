@@ -146,7 +146,7 @@ appimageupdatetool claude-desktop-*.AppImage
 
 [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) reads the same embedded metadata and shows an update button for managed AppImages. Re-downloading from the Releases page always works as a fallback. (Locally built AppImages don't embed update info — rebuild to update.)
 
-> **Note:** If the AppImage fails to start with a `libfuse.so.2` error (common on Ubuntu 24.04+), see [docs/troubleshooting.md](docs/troubleshooting.md#appimage-fails-to-start-libfuse-missing).
+> **Note:** Current AppImages use the static type2-runtime and don't need the EOL `libfuse2` library — only `fusermount3` (`fuse3`), which modern distros ship by default. Older releases failing with a `libfuse.so.2` error: see [docs/troubleshooting.md](docs/troubleshooting.md#appimage-fails-to-start-libfuse-missing).
 
 ### Building from Source
 

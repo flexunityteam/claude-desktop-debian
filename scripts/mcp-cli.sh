@@ -29,6 +29,7 @@
 # Node program implementing the actual config surgery. Reads the config
 # path from CLAUDE_MCP_CONFIG; argv: <op> [args...].
 # Exit codes: 0 ok, 2 usage, 3 unparsable config, 4 name conflict/missing.
+# shellcheck disable=SC2016  # single quotes are deliberate: JS, not shell
 _MCP_CLI_JS='
 const fs = require("fs");
 const path = require("path");

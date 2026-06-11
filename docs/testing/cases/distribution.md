@@ -14,15 +14,15 @@ Tests covering Ubuntu/DEB-specific install behavior, Fedora/RPM-specific install
 2. Download the project AppImage.
 3. Make executable and run it.
 
-**Expected:** AppImage runs without first installing `libfuse2t64`. Either the AppImage bundles its own FUSE shim, the `.desktop`/postinst declares the dep, or the launcher gives a clear error pointing at the package name.
+**Expected:** AppImage runs without first installing `libfuse2t64`. The embedded runtime must not dlopen `libfuse.so.2`; the only FUSE requirement is the `fusermount3` helper (`fuse3` package), which Ubuntu 24.04+ ships by default.
 
-**Currently:** Fails on Ubuntu 24.04 with `dlopen(): error loading libfuse.so.2`. Workaround: `sudo apt install libfuse2t64`. Not yet filed.
+**Currently:** Fixed by the static type2-runtime switch — `appimagetool` from `AppImage/appimagetool` with an explicit `--runtime-file` from `AppImage/type2-runtime`, replacing the legacy AppImageKit tool whose runtime dlopened `libfuse.so.2`. Releases built before the switch still need `sudo apt install libfuse2t64` (or `--appimage-extract-and-run`).
 
-**Diagnostics on failure:** Full stderr from the AppImage launch, `ldd ./claude-desktop-*.AppImage`, `dpkg -l | grep -i fuse`.
+**Diagnostics on failure:** Full stderr from the AppImage launch, `dpkg -l | grep -i fuse`, `./claude-desktop-*.AppImage --appimage-version` (the static runtime identifies itself with the type2-runtime repo URL; the legacy runtime prints a bare version).
 
 **References:** —
 
-**Code anchors:** `scripts/packaging/appimage.sh:226` (downloads the upstream `appimagetool` AppImage as-is — no FUSE shim or static-mksquashfs bundling), `scripts/launcher-common.sh:64` (AppImage forces `--no-sandbox` "due to FUSE constraints"), `.github/workflows/test-artifacts.yml:47` (CI installs `libfuse2` before running the AppImage — i.e. the runtime hard-depends on libfuse2/libfuse2t64). No postinst dep declaration or user-facing FUSE error message exists.
+**Code anchors:** `scripts/packaging/appimage.sh` (downloads the static-runtime `appimagetool` and a pinned type2-runtime, refuses to build if the runtime references `libfuse.so.2`; a system appimagetool from PATH is deliberately ignored so an old AppImageKit install can't silently reintroduce the dependency), `tests/test-artifact-appimage.sh` ("Static runtime check (S01)" — asserts the embedded runtime is libfuse2-free), `S01_appimage_launches_without_libfuse2t64.spec.ts` (runtime spawn probe). CI installs `fuse3` instead of `libfuse2` (`.github/workflows/test-artifacts.yml`).
 
 ## S02 — `XDG_CURRENT_DESKTOP=ubuntu:GNOME` doesn't break DE detection
 

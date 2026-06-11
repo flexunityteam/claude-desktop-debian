@@ -120,16 +120,14 @@ main() {
 	# Debian packaging
 	install_apt_package 'dpkg-deb' 'dpkg-dev'
 
-	# libfuse2 for AppImage (package name varies)
-	if ! dpkg -l libfuse2 &>/dev/null && ! dpkg -l libfuse2t64 &>/dev/null; then
-		log 'Installing libfuse2 for AppImage support...'
-		# Try libfuse2t64 first (Ubuntu 24.04+), fall back to libfuse2
-		if ! sudo -n apt-get install -y -qq libfuse2t64 >> "$log_file" 2>&1; then
-			sudo -n apt-get install -y -qq libfuse2 >> "$log_file" 2>&1
-		fi
-		installed+=('libfuse2')
+	# fuse3 for AppImage (the static-runtime appimagetool and the
+	# shipped AppImage both need fusermount3, not the EOL libfuse2)
+	if ! dpkg -l fuse3 &>/dev/null; then
+		log 'Installing fuse3 for AppImage support...'
+		sudo -n apt-get install -y -qq fuse3 >> "$log_file" 2>&1
+		installed+=('fuse3')
 	else
-		skipped+=('libfuse2')
+		skipped+=('fuse3')
 	fi
 
 	# Node.js for npm/asar operations

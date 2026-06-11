@@ -40,6 +40,20 @@ else
 	fail "AppImage file type unexpected: $file_type"
 fi
 
+# --- Static runtime check (S01) ---
+# The embedded runtime must be the static type2-runtime: the legacy
+# AppImageKit runtime dlopens libfuse.so.2, which Ubuntu 24.04+ and
+# Fedora Atomic no longer ship. --appimage-version is handled by the
+# runtime itself before any FUSE mount (works without fuse), and the
+# type2-runtime identifies itself by repo URL; the legacy runtime
+# prints a bare version string without it.
+runtime_version=$("$appimage_file" --appimage-version 2>&1 | head -1)
+if [[ $runtime_version == *'type2-runtime'* ]]; then
+	pass "Embedded runtime is the static type2-runtime ($runtime_version)"
+else
+	fail "Embedded runtime is not the static type2-runtime: $runtime_version"
+fi
+
 # --- Extract AppImage ---
 extract_dir=$(mktemp -d)
 cd "$extract_dir" || exit 1
