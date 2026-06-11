@@ -208,6 +208,16 @@ echo 'Creating control file...'
 # installer. bubblewrap is Recommended (not required): it provides the
 # default namespace-sandbox isolation for Cowork mode; the app runs without
 # it (Cowork falls back to host-direct). apt installs Recommends by default.
+#
+# Depends: the bundled Electron still links the canonical Chromium/GTK
+# system set at runtime (ldd shows libgtk-3, libnss3, libatspi, libasound
+# as direct links; libnotify/libsecret/libXss/libXtst load dynamically).
+# This is the same dependency set electron-installer-debian declares for
+# every Electron app. Desktop installs already have them; the declarations
+# matter for minimal containers/VMs where a bare `apt install
+# ./claude-desktop.deb` previously launched into missing-.so errors
+# (case-doc S03). Ubuntu 24.04's t64 renames are covered: the t64
+# packages carry Provides: for the old names.
 
 cat > "$package_root/DEBIAN/control" << EOF
 Package: $package_name
@@ -215,6 +225,7 @@ Version: $version
 Section: utils
 Priority: optional
 Architecture: $architecture
+Depends: libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0, libasound2
 Recommends: bubblewrap
 Maintainer: $maintainer
 Description: $description

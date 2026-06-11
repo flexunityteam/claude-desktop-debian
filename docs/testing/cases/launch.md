@@ -43,19 +43,19 @@ Tests covering app startup, the `--doctor` health check, package-format detectio
 
 **Severity:** Should
 **Surface:** CLI / `--doctor`
-**Applies to:** All rows (currently `✗` on every Fedora row — see [S05](./distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage))
+**Applies to:** All rows (the Fedora dpkg false-flag was fixed in [#712](https://github.com/aaddrick/claude-desktop-debian/pull/712) — see [S05](./distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage))
 **Issues:** — *(no issue filed; surfaced via session-capture review)*
 
 **Steps:**
 1. Install via the relevant package manager (`apt` / `dnf`) or AppImage.
 2. Run `claude-desktop --doctor` and look for the install-method line.
 
-**Expected:** Doctor identifies the install method correctly. On RPM-based distros (Fedora, Nobara) it does **not** report `not found via dpkg (AppImage?)` — that warning currently false-flags every dnf install. On DEB-based distros it does not assume AppImage when dpkg returns the package metadata.
+**Expected:** Doctor identifies the install method correctly. On RPM-based distros (Fedora, Nobara) it does **not** report `not found via dpkg (AppImage?)` for a dnf-installed copy. On DEB-based distros it does not assume AppImage when dpkg returns the package metadata.
 
 **Diagnostics on failure:** `dpkg -S $(which claude-desktop)`, `rpm -qf $(which claude-desktop)`, full `--doctor` output, the line of doctor source that decides the format.
 
-**References:** [S05](./distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage)
-**Code anchors:** `scripts/doctor.sh:353-362` — version probe is dpkg-only (`dpkg-query -W -f='${Version}' claude-desktop`); on RPM/AppImage hosts that lack `dpkg-query` the block is skipped, but on a Fedora host that *does* have `dpkg-query` installed (e.g. for cross-distro tooling) the `_warn 'claude-desktop not found via dpkg (AppImage?)'` branch fires for any dnf-installed copy. There is no corresponding `rpm -qf` / `rpm -q claude-desktop` branch.
+**References:** [S05](./distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage), [#712](https://github.com/aaddrick/claude-desktop-debian/pull/712)
+**Code anchors:** `scripts/doctor.sh` `_doctor_check_pkg_version` — probes `rpm -qf` against the bundled Electron binary first (the database that owns the actual install), falls back to `dpkg-query -W` only when rpm doesn't claim the path, and the `_warn 'claude-desktop not found via dpkg/rpm (AppImage?)'` branch fires only when neither manager owns it. The historical Fedora false-flag (dpkg-only probe) was fixed in [#712](https://github.com/aaddrick/claude-desktop-debian/pull/712).
 
 ## T14 — Multi-instance behavior
 

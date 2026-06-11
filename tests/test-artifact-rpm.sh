@@ -33,6 +33,18 @@ else
 	fail "Package name is not claude-desktop"
 fi
 
+# Runtime deps must be declared (case-doc S04): AutoReqProv is off,
+# so the manual Requires block is the only thing standing between a
+# minimal container and missing-.so launch failures.
+rpm_requires=$(rpm -qpR "$rpm_file" 2>/dev/null)
+if [[ $rpm_requires == *'gtk3'* ]] \
+	&& [[ $rpm_requires == *'nss'* ]] \
+	&& [[ $rpm_requires == *'libsecret'* ]]; then
+	pass "Requires declares the Electron system set"
+else
+	fail "Requires missing or incomplete (want gtk3, nss, libsecret at minimum)"
+fi
+
 # --- Install ---
 if rpm -ivh --nodeps "$rpm_file"; then
 	pass "rpm -ivh succeeded"

@@ -206,8 +206,23 @@ Summary:        $description
 License:        Proprietary
 URL:            https://claude.ai
 
-# Disable automatic dependency scanning (we bundle everything)
+# Disable automatic dependency scanning: rpm's scanner walks the bundled
+# Electron payload and emits hundreds of bogus requires/provides that the
+# distro can't satisfy. Instead declare the canonical Electron system set
+# by hand (mirrors electron-installer-redhat; Fedora/RHEL names for the
+# same libs the deb declares in Depends — case-doc S04).
 AutoReqProv:    no
+Requires:       gtk3
+Requires:       libnotify
+Requires:       nss
+Requires:       libXScrnSaver
+Requires:       libXtst
+Requires:       xdg-utils
+Requires:       at-spi2-core
+Requires:       libuuid
+Requires:       libsecret
+Requires:       alsa-lib
+Recommends:     bubblewrap
 
 # Disable debug package generation
 %define debug_package %{nil}

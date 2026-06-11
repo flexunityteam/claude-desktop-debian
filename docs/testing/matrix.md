@@ -22,7 +22,7 @@ Status legend: `✓` pass · `✗` fail · `🔧` mitigated · `?` untested · `
 | [T10](./cases/platform-integration.md#t10--cowork-integration) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 | [T11](./cases/extensibility.md#t11--plugin-install-anthropic--partners) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 | [T12](./cases/platform-integration.md#t12--webgl-warn-only) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
-| [T13](./cases/launch.md#t13--doctor-reports-correct-package-format) | ✗ | ✗ | ✗ | ? | ✗ | ✗ | ✗ | ? | ? |
+| [T13](./cases/launch.md#t13--doctor-reports-correct-package-format) | ✓ | ✓ | ✓ | ? | ✓ | ✓ | ✓ | ? | ? |
 | [T14](./cases/launch.md#t14--multi-instance-behavior) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 | [T15](./cases/code-tab-foundations.md#t15--sign-in-completes-via-browser-handoff) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
 | [T16](./cases/code-tab-foundations.md#t16--code-tab-loads) | ? | ? | ? | ? | ? | ? | ? | ? | ? |
@@ -58,14 +58,14 @@ Status legend: `✓` pass · `✗` fail · `🔧` mitigated · `?` untested · `
 |----|------|--------|-------|
 | [S01](./cases/distribution.md#s01--appimage-launches-without-manual-libfuse2t64-install) | AppImage launches without manual `libfuse2t64` install | ✗ | Workaround documented; not yet filed |
 | [S02](./cases/distribution.md#s02--xdg_current_desktopubuntu-gnome-doesnt-break-de-detection) | `XDG_CURRENT_DESKTOP=ubuntu:GNOME` doesn't break DE detection | ? | — |
-| [S03](./cases/distribution.md#s03--deb-install-via-apt-pulls-all-required-runtime-deps) | DEB install via APT pulls all required runtime deps | ? | — |
+| [S03](./cases/distribution.md#s03--deb-install-via-apt-pulls-all-required-runtime-deps) | DEB install via APT pulls all required runtime deps | ? | `Depends:` now declares the Electron system set (guarded by S03 spec + deb artifact test); fresh-VM first-launch still unverified |
 
 ### Fedora / RPM
 
 | ID | Test | Status | Notes |
 |----|------|--------|-------|
-| [S04](./cases/distribution.md#s04--rpm-install-via-dnf-pulls-all-required-runtime-deps) | RPM install via DNF pulls all required runtime deps | ? | — |
-| [S05](./cases/distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage) | Doctor recognises dnf-installed package (no AppImage false-flag) | ✗ | Affects KDE-W, KDE-X, GNOME, Sway, i3, Niri (T13) |
+| [S04](./cases/distribution.md#s04--rpm-install-via-dnf-pulls-all-required-runtime-deps) | RPM install via DNF pulls all required runtime deps | ? | Spec now declares a manual `Requires:` block (guarded by S04 spec + rpm artifact test); fresh-VM first-launch still unverified |
+| [S05](./cases/distribution.md#s05--doctor-recognises-dnf-installed-package-doesnt-false-flag-as-appimage) | Doctor recognises dnf-installed package (no AppImage false-flag) | ✓ | Fixed in [#712](https://github.com/aaddrick/claude-desktop-debian/pull/712) — doctor probes `rpm -qf` on the bundled Electron binary before falling back to dpkg |
 
 ### Wayland-native (wlroots)
 
@@ -166,7 +166,6 @@ Tests currently `✗` somewhere — investigation priority order:
 | [T06 / S11](./cases/shortcuts-and-input.md#s11--quick-entry-shortcut-fires-from-any-focus-on-wayland-mutter-xwayland-key-grab) | GNOME | mutter doesn't honour XWayland-side key grab |
 | [T06 / S14](./cases/shortcuts-and-input.md#s14--global-shortcuts-via-xdg-portal-work-on-niri) | Niri | `BindShortcuts` returns error code 5 |
 | [T07 / S13](./cases/tray-and-window-chrome.md#s13--hybrid-topbar-shim-survives-omarchys-ozone-wayland-env-exports) | Hypr-O | Hybrid topbar shim partial render under Omarchy's Ozone-Wayland env exports |
-| [T13 / S05](./cases/launch.md#t13--doctor-reports-correct-package-format) | every Fedora row | Doctor only checks dpkg, false-flags every dnf install as AppImage |
 | [S01](./cases/distribution.md#s01--appimage-launches-without-manual-libfuse2t64-install) | Ubuntu 24.04 | AppImage requires `libfuse2t64`; not auto-pulled |
 
 ## Notes on the current state
@@ -175,5 +174,5 @@ Tests currently `✗` somewhere — investigation priority order:
 - KDE-W status reflects @aaddrick's daily-driver host (Nobara KDE Plasma Wayland) where multiple features have been in continuous use.
 - Hypr-N status reflects @typedrat's report on [PR #538](https://github.com/aaddrick/claude-desktop-debian/pull/538) ("Working great on NixOS with Hyprland").
 - Hypr-O status reflects @lukedev45's broken-case report on [PR #538](https://github.com/aaddrick/claude-desktop-debian/pull/538) (partial render, root cause unconfirmed but Omarchy-env-specific — see [S13](./cases/tray-and-window-chrome.md#s13--hybrid-topbar-shim-survives-omarchys-ozone-wayland-env-exports)).
-- T13 is `✗` on every Fedora row because the dpkg false-flag is a deterministic property of the doctor script, not a per-environment failure mode. It will flip to `✓` everywhere once the doctor learns to detect rpm/dnf installs.
+- T13's Fedora dpkg false-flag was fixed in [#712](https://github.com/aaddrick/claude-desktop-debian/pull/712): the doctor probes `rpm -qf` on the bundled Electron binary (the database that owns the actual install) before consulting dpkg, so dnf installs report the right format and version even on hosts that also carry a stale dpkg record.
 - T15–T39 are derived from upstream Claude Code Desktop docs (`code.claude.com/docs/en/desktop*`) — features whose Linux behavior is officially undocumented (the docs explicitly state "Linux is not supported" for the Code tab). All cells start as `?` because the upstream Code-tab feature surface has not been systematically exercised on the patched Linux build.

@@ -13,15 +13,12 @@ const exec = promisify(execFile);
 // Per docs/testing/cases/launch.md T13 (mirror surface: S05 in
 // distribution.md): on RPM-based distros, `claude-desktop --doctor`
 // must NOT print `not found via dpkg (AppImage?)` for a copy that
-// rpm owns. The doctor script's install-method probe is dpkg-only
-// (scripts/doctor.sh — the `command -v dpkg-query` block around the
-// `Installed version:` PASS / `not found via dpkg (AppImage?)` WARN
-// emit; case-doc anchors that as :290-299 but the actual lines are
-// :353-360 in the version of doctor.sh checked at runner-write time
-// — see case-doc anchor drift note in the report). There is no
-// corresponding `rpm -qf` / `rpm -q claude-desktop` branch, so a
-// dnf-installed copy on a host that also has `dpkg-query` available
-// will false-flag.
+// rpm owns. Fixed in #712: `_doctor_check_pkg_version` in
+// scripts/doctor.sh probes `rpm -qf` on the bundled Electron binary
+// first (the database that owns the actual install) and only falls
+// back to dpkg when rpm doesn't claim the path, so dnf installs no
+// longer false-flag even on hosts that also carry a stale dpkg
+// record. This runner now guards against that regression returning.
 //
 // Applies to all rows in principle, but the assertion only has
 // signal when we can (a) reach `claude-desktop` on PATH and (b)

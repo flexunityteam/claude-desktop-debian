@@ -12,17 +12,14 @@ const exec = promisify(execFile);
 //   and pulled by APT. First launch succeeds without manual `apt
 //   install` of any extra package.
 //
-// Code anchor: scripts/packaging/deb.sh:185-197 — the DEBIAN/control
-// file emits Package/Version/Section/Priority/Architecture/Maintainer/
-// Description fields and **no `Depends:` line**, with the inline
-// comment at :181-183 ("No external dependencies are required at
-// runtime"). The case-doc treats this as a regression: Critical
-// surface, expected contract is "deps declared", current state is
-// "deps absent". So this runner is a regression detector — marked
-// `test.fail()` while the case-doc gap is open. The expected
-// failure reports green; the day `scripts/packaging/deb.sh:185-197`
-// emits a `Depends:` line the assertion passes, which flips the
-// `.fail()` to red and prompts a case-doc update + `.fail()` removal.
+// Code anchor: scripts/packaging/deb.sh — the DEBIAN/control file
+// declares the canonical Electron system set in `Depends:` (libgtk-3-0,
+// libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0,
+// libuuid1, libsecret-1-0, libasound2 — mirroring
+// electron-installer-debian), plus `Recommends: bubblewrap`. This
+// runner was a `test.fail()` regression detector while the control
+// file declared nothing; now it guards against the Depends line being
+// dropped again.
 //
 // Layer: pure spawn probe. `dpkg-query -W -f='${Depends}'
 // claude-desktop` reads the field straight out of dpkg's status db,
@@ -41,7 +38,7 @@ const exec = promisify(execFile);
 // authoritative for what a current deb install would look like, so
 // it's a valid signal even if the binary on PATH is the rpm one.
 
-test.fail('S03 — DEB control file declares runtime dependencies', async (
+test('S03 — DEB control file declares runtime dependencies', async (
 	{},
 	testInfo,
 ) => {
@@ -148,11 +145,22 @@ test.fail('S03 — DEB control file declares runtime dependencies', async (
 	// Core S03 assertion. Upstream contract: a Critical-severity
 	// runtime install pulls all transitive deps via APT, which
 	// requires the control file to declare them. Empty Depends ==
-	// regression against scripts/packaging/deb.sh:185-197.
+	// the Depends line was dropped from scripts/packaging/deb.sh.
 	expect(
 		dependsField,
 		'DEBIAN/control Depends: field is non-empty per upstream ' +
-			'contract (case-doc S03 — currently fails until ' +
-			'scripts/packaging/deb.sh:185-197 emits a Depends line)',
+			'contract (case-doc S03 — scripts/packaging/deb.sh ' +
+			'declares the Electron system set)',
 	).not.toBe('');
+
+	// The set must include the libraries the bundled Electron links
+	// directly (ldd-verified) — spot-check the load-bearing ones
+	// rather than string-matching the whole line, so reordering or
+	// version constraints don't false-fail.
+	for (const dep of ['libgtk-3-0', 'libnss3', 'libsecret-1-0']) {
+		expect(
+			dependsField,
+			`Depends must include ${dep}`,
+		).toContain(dep);
+	}
 });

@@ -13,20 +13,19 @@ const exec = promisify(execFile);
 // declarations. Applies to KDE-W, KDE-X, GNOME, Sway, i3, Niri (any
 // RPM-based distro).
 //
-// Case-doc anchors `scripts/packaging/rpm.sh:188` (`AutoReqProv: no`
-// disables RPM's auto-dep generation; the spec declares no
-// `Requires:`) and `:194-198` (strip + build-id disabled because
-// Electron binaries don't tolerate them — bundled approach).
+// Code anchor: scripts/packaging/rpm.sh — the spec keeps
+// `AutoReqProv: no` (the scanner walks the bundled Electron payload
+// and emits unsatisfiable junk) but declares the canonical Electron
+// system set by hand: gtk3, libnotify, nss, libXScrnSaver, libXtst,
+// xdg-utils, at-spi2-core, libuuid, libsecret, alsa-lib (mirroring
+// electron-installer-redhat), plus `Recommends: bubblewrap`.
 //
-// **Regression-detector shape.** The assertion direction is "Requires
-// has at least one declared runtime dep" — i.e. at least one line in
-// `rpm -qR claude-desktop` that isn't an `rpmlib(...)` capability and
-// isn't a `%post`/`%postun` interpreter path (`/bin/sh` etc). Today
-// that filter empties out, so the spec is marked `test.fail()` while
-// the case-doc gap is open: the expected failure reports green. When
-// upstream `rpm.sh` flips `AutoReqProv: on` (or declares an explicit
-// `Requires:` block) the assertion passes, which flips the `.fail()`
-// to red and prompts a case-doc update + `.fail()` removal.
+// The assertion direction is "Requires has at least one declared
+// runtime dep" — i.e. at least one line in `rpm -qR claude-desktop`
+// that isn't an `rpmlib(...)` capability and isn't a `%post`/`%postun`
+// interpreter path (`/bin/sh` etc). This spec was a `test.fail()`
+// regression detector while the spec declared nothing; now it guards
+// against the Requires block being dropped again.
 //
 // `rpm -qR` always emits `rpmlib(CompressedFileNames)`,
 // `rpmlib(FileDigests)`, `rpmlib(PayloadFilesHavePrefix)`, and
@@ -123,7 +122,7 @@ function isAutoEmittedRequire(line: string): boolean {
 	return false;
 }
 
-test.fail('S04 — RPM package declares runtime requirements', async (
+test('S04 — RPM package declares runtime requirements', async (
 	{},
 	testInfo,
 ) => {
@@ -212,21 +211,20 @@ test.fail('S04 — RPM package declares runtime requirements', async (
 	// Core S04 assertion. Per case-doc "Expected": "All transitive
 	// runtime deps are declared in the RPM and pulled by DNF." A
 	// non-empty `declaredRequires` is the minimum signal — it doesn't
-	// prove the *full* set is declared, but it proves the spec moved
-	// off `AutoReqProv: no` with no manual `Requires:` (the current
-	// state per scripts/packaging/rpm.sh:188).
-	//
-	// Marked `test.fail()` at the test definition: today this fails
-	// by design (regression-detector state), and the expected failure
-	// reports green. When scripts/packaging/rpm.sh starts declaring
-	// runtime deps (manual Requires lines, AutoReqProv flip, or both)
-	// the assertion passes, which flips `.fail()` to red — the signal
-	// to update the case-doc and remove the annotation.
+	// prove the *full* set is declared, but it proves the manual
+	// `Requires:` block in scripts/packaging/rpm.sh is still there.
 	expect(
 		declaredRequires.length,
 		`rpm -qR claude-desktop should report at least one declared ` +
-			`runtime requirement (non-rpmlib(...), non-interpreter). ` +
-			`Currently empty per scripts/packaging/rpm.sh:188 ` +
-			`(\`AutoReqProv: no\`, no \`Requires:\`).`,
+			`runtime requirement (non-rpmlib(...), non-interpreter) ` +
+			`per the Requires block in scripts/packaging/rpm.sh.`,
 	).toBeGreaterThan(0);
+
+	// Spot-check the load-bearing direct links (ldd-verified).
+	for (const req of ['gtk3', 'nss', 'libsecret']) {
+		expect(
+			declaredRequires.join('\n'),
+			`Requires must include ${req}`,
+		).toContain(req);
+	}
 });

@@ -44,6 +44,17 @@ else
 	fail "Version field missing"
 fi
 
+# Runtime deps must be declared (case-doc S03): the bundled Electron
+# links the canonical Chromium/GTK system set, which minimal
+# containers/VMs don't have preinstalled.
+if [[ $pkg_info == *'Depends:'*'libgtk-3-0'* ]] \
+	&& [[ $pkg_info == *'libnss3'* ]] \
+	&& [[ $pkg_info == *'libsecret-1-0'* ]]; then
+	pass "Depends declares the Electron system set"
+else
+	fail "Depends missing or incomplete (want libgtk-3-0, libnss3, libsecret-1-0 at minimum)"
+fi
+
 # --- Install the package ---
 # Use --force-depends since we only care about file placement
 if sudo dpkg -i --force-depends "$deb_file"; then

@@ -62,7 +62,7 @@ Tests covering Ubuntu/DEB-specific install behavior, Fedora/RPM-specific install
 
 **References:** [`docs/learnings/apt-worker-architecture.md`](../../learnings/apt-worker-architecture.md)
 
-**Code anchors:** `scripts/packaging/deb.sh:185-197` (DEBIAN/control file — no `Depends:` field is emitted; relies on bundled Electron + the comment "No external dependencies are required at runtime" at line 183), `scripts/packaging/deb.sh:202-230` (postinst only sets chrome-sandbox suid, no dep-pull). Worker chain serving the package: `worker/src/worker.js:22-31` (`DEB_RE`) and `:33-43` (302 → GitHub Releases).
+**Code anchors:** `scripts/packaging/deb.sh` (DEBIAN/control declares the canonical Electron system set in `Depends:` — libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0, libasound2, mirroring electron-installer-debian — plus `Recommends: bubblewrap`; Ubuntu 24.04 t64 renames are satisfied via the t64 packages' `Provides:`). Guarded by `S03_deb_dependencies_declared.spec.ts` and the deb artifact test. Worker chain serving the package: `worker/src/worker.js:22-31` (`DEB_RE`) and `:33-43` (302 → GitHub Releases).
 
 ## S04 — RPM install via DNF pulls all required runtime deps
 
@@ -82,7 +82,7 @@ Tests covering Ubuntu/DEB-specific install behavior, Fedora/RPM-specific install
 
 **References:** [`docs/learnings/apt-worker-architecture.md`](../../learnings/apt-worker-architecture.md)
 
-**Code anchors:** `scripts/packaging/rpm.sh:188` (`AutoReqProv: no` — explicitly disables RPM's auto-dep generation; spec declares no `Requires:`), `scripts/packaging/rpm.sh:194-198` (strip + build-id disabled because Electron binaries don't tolerate them — bundled approach). Worker chain: `worker/src/worker.js:28-31` (`RPM_RE`).
+**Code anchors:** `scripts/packaging/rpm.sh` (`AutoReqProv: no` stays — rpm's scanner walks the bundled Electron payload and emits unsatisfiable junk — but the spec now declares the canonical Electron system set by hand: gtk3, libnotify, nss, libXScrnSaver, libXtst, xdg-utils, at-spi2-core, libuuid, libsecret, alsa-lib, mirroring electron-installer-redhat, plus `Recommends: bubblewrap`; strip + build-id remain disabled because Electron binaries don't tolerate them). Guarded by `S04_rpm_requires_declared.spec.ts` and the rpm artifact test. Worker chain: `worker/src/worker.js:28-31` (`RPM_RE`).
 
 ## S05 — Doctor recognises dnf-installed package, doesn't false-flag as AppImage
 
