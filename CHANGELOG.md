@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) — 
 
 ### Added
 
+- `claude-desktop --doctor --fix` auto-repairs findings with a safe, mechanical remediation: removes a stale `SingletonLock` (only when the holding PID is provably dead), truncates a `launcher.log` over 10 MB (truncate, not delete, so a running launcher keeps its fd), and — when run as root — repairs `chrome-sandbox` ownership/permissions and loads an on-disk-but-unloaded AppArmor profile. Each applied fix prints `[FIXED]`, root-gated fixes print a `sudo` hint without it, and plain `--doctor` stays read-only.
 - Build-time patch verification now covers every patch suite, not just Cowork: `scripts/cowork-patch-markers.tsv` is superseded by `scripts/patch-markers.tsv` with an optional per-marker target-file column (tray, quick-window, claude-code, org-plugins, config guards, the WCO shim in `mainView.js`, the frame-fix wrapper wiring in `package.json`/`frame-fix-entry.js`, and the #567 autoUpdater no-op — 25 markers total). `build.sh` runs the check on the staging tree before repacking the asar, so local builds fail fast instead of relying on CI; the CI artifact check is unchanged.
 
 ### Fixed

@@ -230,8 +230,9 @@ app_path="RESOURCES_PLACEHOLDER/app.asar"
 source "LAUNCHER_LIB_PLACEHOLDER"
 
 # Handle --doctor flag before anything else
+# (--fix as the second argument enables auto-remediation)
 if [[ "''${1:-}" == '--doctor' ]]; then
-	run_doctor "$electron_exec"
+	run_doctor "$electron_exec" "''${2:-}"
 	exit $?
 fi
 

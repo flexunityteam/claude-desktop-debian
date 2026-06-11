@@ -53,6 +53,28 @@ All checks passed.
 
 When opening an issue, include the output of `--doctor` to help with diagnosis.
 
+### Auto-repair with `--doctor --fix`
+
+Findings with a safe, mechanical remediation can be repaired
+automatically:
+
+```bash
+claude-desktop --doctor --fix
+```
+
+| Finding | Fix applied |
+|---|---|
+| Stale `SingletonLock` (holding PID no longer running) | Lock symlink removed |
+| `launcher.log` over 10 MB | File truncated to 0 bytes (kept in place so a running launcher keeps logging) |
+| `chrome-sandbox` wrong owner/permissions | `chown root:root` + `chmod 4755` — requires `sudo` |
+| AppArmor profile on disk but not loaded | `apparmor_parser -r` — requires `sudo` |
+
+Each applied fix prints a `[FIXED]` line and the summary reports the
+total. Fixes that need root are skipped without `sudo`; doctor prints
+a hint to re-run as `sudo claude-desktop --doctor --fix` instead.
+Everything else stays read-only — `--fix` never touches MCP config,
+keychain data, or anything whose correct state is ambiguous.
+
 ## Application Logs
 
 Runtime logs are available at:

@@ -612,3 +612,120 @@ _hide_pkg_tools() {
 	[[ $status -eq 0 ]]
 	[[ -z $output ]]
 }
+
+# =============================================================================
+# _doctor_check_singleton_lock: stale-lock detection and --fix removal
+# =============================================================================
+
+# Create a SingletonLock symlink in the test XDG_CONFIG_HOME pointing
+# at "host-<pid>", mirroring Chromium's lock format.
+_make_singleton_lock() {
+	local pid="$1"
+	mkdir -p "$XDG_CONFIG_HOME/Claude"
+	ln -s "testhost-$pid" "$XDG_CONFIG_HOME/Claude/SingletonLock"
+}
+
+@test "_doctor_check_singleton_lock: passes when no lock file exists" {
+	run _doctor_check_singleton_lock
+	[[ $output == *'[PASS]'* ]]
+	[[ $output == *'no lock file'* ]]
+}
+
+@test "_doctor_check_singleton_lock: passes when lock held by live process" {
+	# $$ is the bats test process — provably alive.
+	_make_singleton_lock "$$"
+	run _doctor_check_singleton_lock
+	[[ $output == *'[PASS]'* ]]
+	[[ $output == *"PID $$"* ]]
+	# Lock must never be touched when the holder is alive, even in fix mode.
+	_doctor_fix=true
+	run _doctor_check_singleton_lock
+	[[ $output == *'[PASS]'* ]]
+	[[ -L "$XDG_CONFIG_HOME/Claude/SingletonLock" ]]
+}
+
+@test "_doctor_check_singleton_lock: warns on stale lock without --fix, keeps lock" {
+	# PID 4194300 is at the top of the default pid_max range —
+	# effectively guaranteed dead on a test box.
+	_make_singleton_lock 4194300
+	run _doctor_check_singleton_lock
+	[[ $output == *'[WARN]'* ]]
+	[[ $output == *'stale lock'* ]]
+	[[ $output == *'Fix: rm'* ]]
+	[[ -L "$XDG_CONFIG_HOME/Claude/SingletonLock" ]]
+}
+
+@test "_doctor_check_singleton_lock: --fix removes stale lock and reports FIXED" {
+	_make_singleton_lock 4194300
+	_doctor_fix=true
+	_doctor_fixes=0
+	run _doctor_check_singleton_lock
+	[[ $output == *'[FIXED]'* ]]
+	[[ $output == *'removed stale lock'* ]]
+	[[ $output != *'[WARN]'* ]]
+	[[ ! -L "$XDG_CONFIG_HOME/Claude/SingletonLock" ]]
+}
+
+# =============================================================================
+# _doctor_check_log_file: size warning and --fix truncation
+# =============================================================================
+
+_make_launcher_log() {
+	local size="$1"
+	mkdir -p "$XDG_CACHE_HOME/claude-desktop-debian"
+	truncate -s "$size" "$XDG_CACHE_HOME/claude-desktop-debian/launcher.log"
+}
+
+@test "_doctor_check_log_file: info when log not yet created" {
+	run _doctor_check_log_file
+	[[ $output == *'not yet created'* ]]
+}
+
+@test "_doctor_check_log_file: passes on small log, fix mode leaves it alone" {
+	_make_launcher_log 4K
+	_doctor_fix=true
+	run _doctor_check_log_file
+	[[ $output == *'[PASS]'* ]]
+	local size
+	size=$(stat -c '%s' "$XDG_CACHE_HOME/claude-desktop-debian/launcher.log")
+	[[ $size -eq 4096 ]]
+}
+
+@test "_doctor_check_log_file: warns on oversized log without --fix" {
+	_make_launcher_log 11M
+	run _doctor_check_log_file
+	[[ $output == *'[WARN]'* ]]
+	[[ $output == *'consider clearing'* ]]
+	local size
+	size=$(stat -c '%s' "$XDG_CACHE_HOME/claude-desktop-debian/launcher.log")
+	[[ $size -gt 0 ]]
+}
+
+@test "_doctor_check_log_file: --fix truncates oversized log and reports FIXED" {
+	_make_launcher_log 11M
+	_doctor_fix=true
+	_doctor_fixes=0
+	run _doctor_check_log_file
+	[[ $output == *'[FIXED]'* ]]
+	[[ $output == *'truncated'* ]]
+	local log="$XDG_CACHE_HOME/claude-desktop-debian/launcher.log"
+	[[ -f $log ]]
+	local size
+	size=$(stat -c '%s' "$log")
+	[[ $size -eq 0 ]]
+}
+
+# =============================================================================
+# _fixed counter helper
+# =============================================================================
+
+@test "_fixed: increments _doctor_fixes and prints FIXED tag" {
+	_doctor_fixes=0
+	local out
+	out=$(_fixed 'something repaired')
+	[[ $out == *'[FIXED]'* ]]
+	[[ $out == *'something repaired'* ]]
+	# Re-run without command substitution so the increment is visible.
+	_fixed 'again' >/dev/null
+	[[ $_doctor_fixes -eq 1 ]]
+}

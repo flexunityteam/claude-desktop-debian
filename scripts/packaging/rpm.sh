@@ -84,9 +84,10 @@ cat > "$staging_dir/claude-desktop" << EOF
 source "/usr/lib/$package_name/launcher-common.sh"
 
 # Handle --doctor flag before anything else
+# (--fix as the second argument enables auto-remediation)
 if [[ "\${1:-}" == '--doctor' ]]; then
 	local_electron_path="/usr/lib/$package_name/node_modules/electron/dist/electron"
-	run_doctor "\$local_electron_path"
+	run_doctor "\$local_electron_path" "\${2:-}"
 	exit \$?
 fi
 

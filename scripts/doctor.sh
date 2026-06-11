@@ -10,6 +10,11 @@
 # at the top of launcher-common.sh (substituted at build time), which the
 # live-UI fingerprint in the orphaned-daemon check reads at runtime.
 #
+# `claude-desktop --doctor --fix` additionally auto-repairs findings with
+# a safe, mechanical remediation: stale SingletonLock removal, oversized
+# launcher.log truncation, and (when run as root) chrome-sandbox
+# permissions and AppArmor profile loading.
+#
 # To add a new check: define an internal function `_check_<name>`, call it
 # from run_doctor in the appropriate section, use _pass / _fail / _warn /
 # _info to print results. _fail increments _doctor_failures (local to
@@ -186,6 +191,18 @@ _electron_version() {
 }
 
 _pass() { echo -e "${_green}[PASS]${_reset} $*"; }
+# Reported when --fix repaired a finding in this run. Counts into
+# _doctor_fixes so the summary can say what changed.
+_fixed() {
+	echo -e "${_green}[FIXED]${_reset} $*"
+	_doctor_fixes=$((${_doctor_fixes:-0} + 1))
+}
+# Reported when --fix is active but the remediation needs root and
+# we don't have it. Not a failure by itself — the underlying check
+# already counted one if applicable.
+_fix_needs_root() {
+	_info "Fix available: re-run as 'sudo claude-desktop --doctor --fix' to $*"
+}
 _fail() {
 	echo -e "${_red}[FAIL]${_reset} $*"
 	_doctor_failures=$((_doctor_failures + 1))
@@ -669,11 +686,87 @@ _doctor_check_pkg_version() {
 	fi
 }
 
+# Check the Chromium SingletonLock under $XDG_CONFIG_HOME/Claude.
+# A symlink whose embedded PID is dead means a crashed instance left
+# the lock behind and new launches will silently defer to a ghost.
+# In fix mode (_doctor_fix=true, set by run_doctor) the stale lock is
+# removed — safe because the holding PID is provably not running.
+_doctor_check_singleton_lock() {
+	local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/Claude"
+	local lock_file="$config_dir/SingletonLock"
+	if [[ -L $lock_file ]]; then
+		local lock_target lock_pid
+		lock_target="$(readlink "$lock_file" 2>/dev/null)" || true
+		lock_pid="${lock_target##*-}"
+		if [[ $lock_pid =~ ^[0-9]+$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
+			_pass "SingletonLock: held by running process (PID $lock_pid)"
+		elif [[ ${_doctor_fix:-false} == true ]]; then
+			if rm -f "$lock_file" 2>/dev/null && [[ ! -L $lock_file ]]; then
+				_fixed "SingletonLock: removed stale lock" \
+					"(PID $lock_pid was not running)"
+			else
+				_warn "SingletonLock: stale lock found" \
+					"(PID $lock_pid is not running) — removal failed"
+				_info "Fix: rm '$lock_file'"
+			fi
+		else
+			_warn "SingletonLock: stale lock found" \
+				"(PID $lock_pid is not running)"
+			_info "Fix: rm '$lock_file'"
+		fi
+	else
+		_pass 'SingletonLock: no lock file (OK)'
+	fi
+}
+
+# Check launcher.log size under $XDG_CACHE_HOME. Warns above 10 MB
+# (runaway Electron stderr loops have produced multi-GB logs, see the
+# LaunchProcess/execvp failure mode). In fix mode the file is
+# truncated, not removed: a running launcher keeps its fd on the same
+# inode, so appends continue to land in the (now empty) file.
+_doctor_check_log_file() {
+	local log_path
+	log_path="${XDG_CACHE_HOME:-$HOME/.cache}"
+	log_path="$log_path/claude-desktop-debian/launcher.log"
+	if [[ -f $log_path ]]; then
+		local log_size
+		log_size=$(stat -c '%s' "$log_path" 2>/dev/null) || log_size=0
+		local log_size_kb=$((log_size / 1024))
+		if ((log_size_kb > 10240)); then
+			if [[ ${_doctor_fix:-false} == true ]]; then
+				if : > "$log_path" 2>/dev/null; then
+					_fixed "Log file: truncated ${log_size_kb}KB" \
+						"-> 0KB ($log_path)"
+				else
+					_warn "Log file: ${log_size_kb}KB" \
+						"— truncation failed"
+					_info "Fix: rm '$log_path'"
+				fi
+			else
+				_warn "Log file: ${log_size_kb}KB" \
+					"(consider clearing: rm '$log_path')"
+			fi
+		else
+			_pass "Log file: ${log_size_kb}KB ($log_path)"
+		fi
+	else
+		_info 'Log file: not yet created (OK)'
+	fi
+}
+
 # Run all diagnostic checks and print results
 # Arguments: $1 = electron path (optional, for package-specific checks)
+#            $2 = '--fix' (optional) to auto-repair safe findings
 run_doctor() {
 	local electron_path="${1:-}"
 	local _doctor_failures=0
+	local _doctor_fixes=0
+	# --fix: apply safe remediations for findings that have a known,
+	# mechanical fix (stale locks, oversized logs; sandbox perms and
+	# AppArmor load when running as root). Without it, behavior is
+	# read-only exactly as before.
+	local _doctor_fix=false
+	[[ "${2:-}" == '--fix' ]] && _doctor_fix=true
 	_doctor_colors
 
 	# Distro ID is shared between the IM-module check (#550) and the
@@ -809,11 +902,27 @@ run_doctor() {
 			sandbox_owner=$(stat -c '%U' "$sandbox_path" 2>/dev/null) || true
 			if [[ $sandbox_perms == '4755' && $sandbox_owner == 'root' ]]; then
 				_pass "Chrome sandbox: permissions OK ($sandbox_path)"
+			elif [[ $_doctor_fix == true ]] && ((EUID == 0)); then
+				if chown root:root "$sandbox_path" 2>/dev/null \
+					&& chmod 4755 "$sandbox_path" 2>/dev/null \
+					&& [[ $(stat -c '%a:%U' "$sandbox_path" 2>/dev/null) \
+						== '4755:root' ]]; then
+					_fixed "Chrome sandbox: set root:root 4755" \
+						"($sandbox_path)"
+				else
+					_fail "Chrome sandbox: perms=${sandbox_perms:-?},\
+ owner=${sandbox_owner:-?} — fix attempt failed"
+					_info "Fix: sudo chown root:root $sandbox_path"
+					_info "     sudo chmod 4755 $sandbox_path"
+				fi
 			else
 				_fail "Chrome sandbox: perms=${sandbox_perms:-?},\
  owner=${sandbox_owner:-?}"
 				_info "Fix: sudo chown root:root $sandbox_path"
 				_info "     sudo chmod 4755 $sandbox_path"
+				if [[ $_doctor_fix == true ]]; then
+					_fix_needs_root 'repair the sandbox permissions'
+				fi
 			fi
 			break
 		fi
@@ -855,12 +964,31 @@ run_doctor() {
 			# mere presence on disk.
 			if printf '%s\n' "$_loaded_set" | grep -q '^claude-desktop '; then
 				_pass 'User namespaces: restricted, AppArmor profile loaded'
+			elif [[ $_doctor_fix == true && -e $_aa_profile ]] \
+				&& ((EUID == 0)) \
+				&& command -v apparmor_parser &>/dev/null; then
+				# Reading the loaded set succeeded, so we have the
+				# privileges apparmor_parser needs. Load the on-disk
+				# profile and confirm against the kernel.
+				if apparmor_parser -r "$_aa_profile" 2>/dev/null \
+					&& cat "$_aa_loaded" 2>/dev/null \
+					| grep -q '^claude-desktop '; then
+					_fixed 'User namespaces: loaded AppArmor profile' \
+						"($_aa_profile)"
+				else
+					_warn 'User namespaces: restricted by AppArmor,' \
+						'Claude profile not loaded — load attempt failed'
+					_info "  sudo apparmor_parser -r $_aa_profile"
+				fi
 			else
 				_warn 'User namespaces: restricted by AppArmor,' \
 					'Claude profile not loaded'
 				if [[ -e $_aa_profile ]]; then
 					_info '  Profile is on disk but not loaded. Load it:'
 					_info "  sudo apparmor_parser -r $_aa_profile"
+					if [[ $_doctor_fix == true ]] && ((EUID != 0)); then
+						_fix_needs_root 'load the AppArmor profile'
+					fi
 				else
 					_info '  No profile found. See docs/troubleshooting.md'
 					_info '  "Claude Desktop crashes immediately on launch".'
@@ -891,22 +1019,7 @@ run_doctor() {
 	fi
 
 	# -- SingletonLock --
-	local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/Claude"
-	local lock_file="$config_dir/SingletonLock"
-	if [[ -L $lock_file ]]; then
-		local lock_target lock_pid
-		lock_target="$(readlink "$lock_file" 2>/dev/null)" || true
-		lock_pid="${lock_target##*-}"
-		if [[ $lock_pid =~ ^[0-9]+$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
-			_pass "SingletonLock: held by running process (PID $lock_pid)"
-		else
-			_warn "SingletonLock: stale lock found" \
-				"(PID $lock_pid is not running)"
-			_info "Fix: rm '$lock_file'"
-		fi
-	else
-		_pass 'SingletonLock: no lock file (OK)'
-	fi
+	_doctor_check_singleton_lock
 
 	# -- Password store --
 	_doctor_check_password_store
@@ -1210,30 +1323,22 @@ print(len(servers))
 	_doctor_check_recent_crashes "$electron_path"
 
 	# -- Log file --
-	local log_path
-	log_path="${XDG_CACHE_HOME:-$HOME/.cache}"
-	log_path="$log_path/claude-desktop-debian/launcher.log"
-	if [[ -f $log_path ]]; then
-		local log_size
-		log_size=$(stat -c '%s' "$log_path" 2>/dev/null) || log_size=0
-		local log_size_kb=$((log_size / 1024))
-		if ((log_size_kb > 10240)); then
-			_warn "Log file: ${log_size_kb}KB" \
-				"(consider clearing: rm '$log_path')"
-		else
-			_pass "Log file: ${log_size_kb}KB ($log_path)"
-		fi
-	else
-		_info 'Log file: not yet created (OK)'
-	fi
+	_doctor_check_log_file
 
 	# -- Summary --
 	echo
+	if ((_doctor_fixes > 0)); then
+		echo -e "${_green}${_bold}${_doctor_fixes} issue(s) fixed.${_reset}"
+	fi
 	if ((_doctor_failures == 0)); then
 		echo -e "${_green}${_bold}All checks passed.${_reset}"
 	else
 		echo -e "${_red}${_bold}${_doctor_failures} check(s) failed.${_reset}"
 		echo 'See above for fixes.'
+		if [[ $_doctor_fix != true ]]; then
+			echo "Some findings may be auto-repairable:" \
+				"try 'claude-desktop --doctor --fix'."
+		fi
 	fi
 
 	return "$_doctor_failures"

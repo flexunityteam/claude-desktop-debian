@@ -78,9 +78,10 @@ appdir=$(dirname "$(readlink -f "$0")")
 source "$appdir/usr/lib/claude-desktop/launcher-common.sh"
 
 # Handle --doctor flag before anything else
+# (--fix as the second argument enables auto-remediation)
 if [[ "${1:-}" == '--doctor' ]]; then
 	electron_path="$appdir/usr/lib/node_modules/electron/dist/electron"
-	run_doctor "$electron_path"
+	run_doctor "$electron_path" "${2:-}"
 	exit $?
 fi
 
