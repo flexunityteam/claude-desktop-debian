@@ -174,6 +174,59 @@ the binary exists off-PATH, a package install when absent), and the
 `/etc/modules-load.d/`). Package names are resolved per distro (apt/dnf/pacman).
 Without `--install` nothing is executed — the plan is only printed for review.
 
+## Keeping Claude Desktop Up To Date
+
+Because this is a repackaged build (not Anthropic's auto-updating Windows
+installer), a new upstream Claude Desktop release only reaches you when the
+package is rebuilt. `--update` automates that the way Cursor self-updates,
+building from your own fork so local customizations survive:
+
+```bash
+# One-time setup: daily timer + silent-install permission
+claude-desktop --setup-auto-update
+
+# On demand:
+claude-desktop --update            # build + install if a newer version exists
+claude-desktop --update --check    # report only; exit 10 if behind
+claude-desktop --update --dry-run  # show the plan, change nothing
+claude-desktop --update --force    # rebuild + reinstall regardless
+```
+
+How it works:
+
+- **Version check is cheap.** Anthropic's download endpoint is Cloudflare-gated
+  (plain `curl` gets 403, which is why CI's resolver needs Playwright). Instead
+  the newest packaged version is read from upstream's git tags
+  (`vREPO+claudeX.Y.Z`) — a single API call, no browser.
+- **Builds from your fork, via a merge.** When behind, the upstream release tag
+  is merged into a throwaway git worktree (your working checkout is never
+  touched). The merge brings upstream's new download URLs *and* its updated
+  patch scripts while keeping your fork's commits, then `build.sh` runs there. A
+  plain URL bump isn't enough — a new Claude version usually ships reworked
+  minified code that older patches no longer match.
+- **Install is the only root step.** The built `.deb` is installed by a tiny
+  root-owned wrapper, `/usr/local/sbin/claude-desktop-apply-update`, whitelisted
+  by a scoped `NOPASSWD` rule in `/etc/sudoers.d/claude-desktop-update`. The
+  wrapper refuses anything whose package name isn't `claude-desktop`.
+- **Failures never break the installed app.** A build that fails (including
+  `verify-patches` rejecting a patch that doesn't apply to the new version)
+  aborts *before* install. A merge conflict bails with a "manual merge needed"
+  notification — resolve it once with `git merge <tag>` in your clone.
+
+Remove the timer with `claude-desktop --setup-auto-update --disable` (it prints
+how to drop the sudo permission too).
+
+> **Note on customized forks:** if your fork carries patches that upstream
+> doesn't (e.g. the Cowork Linux suite), those patch regexes are written against
+> a specific minified bundle and may not match a newer Claude version. The
+> updater will keep building cleanly and skip the install until the patches are
+> re-derived for the new version — it never installs a half-patched app.
+
+> **Security trade-off:** silent root install is the inherent cost of
+> Cursor-style updates. The `NOPASSWD` grant is scoped to the single root-owned
+> wrapper, but anyone wanting full supply-chain assurance should install from a
+> signed APT/DNF repo instead of building locally.
+
 ## Cowork Sandbox Mounts
 
 When using Cowork mode with the BubbleWrap (bwrap) backend, you can customize

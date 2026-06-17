@@ -105,6 +105,18 @@ if [[ "\${1:-}" == '--cowork-setup' ]]; then
 	exit \$?
 fi
 
+# Handle --update (check/build/install newer Claude from this fork)
+if [[ "\${1:-}" == '--update' ]]; then
+	run_auto_update "\${2:-}"
+	exit \$?
+fi
+
+# Handle --setup-auto-update (install the daily update timer)
+if [[ "\${1:-}" == '--setup-auto-update' ]]; then
+	run_setup_auto_update "\${2:-}"
+	exit \$?
+fi
+
 # Setup logging and environment
 setup_logging || exit 1
 setup_electron_env
@@ -274,6 +286,10 @@ sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "%{buildroot}/usr/lib/$package_name/launcher-
 cp $(dirname "$script_dir")/doctor.sh %{buildroot}/usr/lib/$package_name/
 cp $(dirname "$script_dir")/mcp-cli.sh %{buildroot}/usr/lib/$package_name/
 cp $(dirname "$script_dir")/cowork-setup.sh %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/auto-update.sh %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/auto-update-apply.sh %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/auto-update/claude-desktop-update.service %{buildroot}/usr/lib/$package_name/
+cp $(dirname "$script_dir")/auto-update/claude-desktop-update.timer %{buildroot}/usr/lib/$package_name/
 
 # Install desktop entry
 install -Dm 644 $staging_dir/claude-desktop.desktop %{buildroot}/usr/share/applications/claude-desktop.desktop

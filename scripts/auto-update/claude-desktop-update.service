@@ -1,0 +1,15 @@
+[Unit]
+Description=Check for and apply Claude Desktop updates (builds from local fork)
+Documentation=https://github.com/aaddrick/claude-desktop-debian
+# Don't run while offline.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The launcher sources auto-update.sh and short-circuits before the GUI.
+ExecStart=/usr/bin/claude-desktop --update
+# A build can take a couple of minutes (downloads the upstream installer).
+TimeoutStartSec=900
+# Keep the journal tidy — only real failures should surface.
+SuccessExitStatus=0

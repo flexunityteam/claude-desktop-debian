@@ -94,6 +94,7 @@ setup() {
 	cp "$SCRIPT_DIR/../scripts/doctor.sh" "$TEST_TMP/doctor.sh"
 	cp "$SCRIPT_DIR/../scripts/mcp-cli.sh" "$TEST_TMP/mcp-cli.sh"
 	cp "$SCRIPT_DIR/../scripts/cowork-setup.sh" "$TEST_TMP/cowork-setup.sh"
+	cp "$SCRIPT_DIR/../scripts/auto-update.sh" "$TEST_TMP/auto-update.sh"
 	sed -i 's/@@WM_CLASS@@/Claude/' "$TEST_TMP/launcher-common.sh"
 	# shellcheck source=scripts/launcher-common.sh
 	source "$TEST_TMP/launcher-common.sh"

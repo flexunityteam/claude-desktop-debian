@@ -1,0 +1,5 @@
+# Append-at-top files conflict on nearly every merge. The built-in
+# `union` driver keeps both sides' added lines instead of producing
+# conflict markers, which lets `claude-desktop --update` merge upstream
+# release tags into this fork unattended (see scripts/auto-update.sh).
+CHANGELOG.md merge=union

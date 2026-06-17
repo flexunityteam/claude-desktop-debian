@@ -169,6 +169,8 @@ Run `claude-desktop --doctor` for built-in diagnostics that check common issues 
 
 To set up Cowork's KVM isolation backend, run `claude-desktop --cowork-setup` — it reports the missing pieces (QEMU, socat, virtiofsd, vsock module, `/dev/kvm` access) and prints the exact commands to fix them; add `--install` to run them via sudo. See [docs/configuration.md](docs/configuration.md#setting-up-the-kvm-backend).
 
+To keep the locally-built package current with upstream Claude Desktop releases (Cursor-style), run `claude-desktop --setup-auto-update` once — it installs a daily timer that checks for new versions and rebuilds + installs silently from this fork, preserving local customizations. Check on demand with `claude-desktop --update` (`--check` to report only, `--dry-run` to preview). See [docs/configuration.md](docs/configuration.md#keeping-claude-desktop-up-to-date).
+
 For additional troubleshooting, uninstallation instructions, and log locations, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Acknowledgments

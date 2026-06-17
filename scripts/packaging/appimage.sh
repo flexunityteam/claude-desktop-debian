@@ -52,7 +52,11 @@ sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "$appdir_path/usr/lib/claude-desktop/launcher
 cp "$(dirname "$script_dir")/doctor.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
 cp "$(dirname "$script_dir")/mcp-cli.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
 cp "$(dirname "$script_dir")/cowork-setup.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
-echo 'Shared launcher library + doctor + mcp-cli + cowork-setup copied'
+cp "$(dirname "$script_dir")/auto-update.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
+cp "$(dirname "$script_dir")/auto-update-apply.sh" "$appdir_path/usr/lib/claude-desktop/" || exit 1
+cp "$(dirname "$script_dir")/auto-update/claude-desktop-update.service" "$appdir_path/usr/lib/claude-desktop/" || exit 1
+cp "$(dirname "$script_dir")/auto-update/claude-desktop-update.timer" "$appdir_path/usr/lib/claude-desktop/" || exit 1
+echo 'Shared launcher library + doctor + mcp-cli + cowork-setup + auto-update copied'
 
 # Ensure Electron is bundled within the AppDir for portability
 # Check if electron was copied into the staging dir's node_modules
@@ -98,6 +102,18 @@ fi
 # Handle --cowork-setup (check/install KVM backend dependencies)
 if [[ "${1:-}" == '--cowork-setup' ]]; then
 	run_cowork_setup "${2:-}"
+	exit $?
+fi
+
+# Handle --update (check/build/install newer Claude from this fork)
+if [[ "${1:-}" == '--update' ]]; then
+	run_auto_update "${2:-}"
+	exit $?
+fi
+
+# Handle --setup-auto-update (install the daily update timer)
+if [[ "${1:-}" == '--setup-auto-update' ]]; then
+	run_setup_auto_update "${2:-}"
 	exit $?
 fi
 

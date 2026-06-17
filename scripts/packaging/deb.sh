@@ -74,7 +74,11 @@ sed -i "s/@@WM_CLASS@@/$WM_CLASS/" "$install_dir/lib/$package_name/launcher-comm
 cp "$(dirname "$script_dir")/doctor.sh" "$install_dir/lib/$package_name/" || exit 1
 cp "$(dirname "$script_dir")/mcp-cli.sh" "$install_dir/lib/$package_name/" || exit 1
 cp "$(dirname "$script_dir")/cowork-setup.sh" "$install_dir/lib/$package_name/" || exit 1
-echo 'Shared launcher library + doctor + mcp-cli + cowork-setup copied'
+cp "$(dirname "$script_dir")/auto-update.sh" "$install_dir/lib/$package_name/" || exit 1
+cp "$(dirname "$script_dir")/auto-update-apply.sh" "$install_dir/lib/$package_name/" || exit 1
+cp "$(dirname "$script_dir")/auto-update/claude-desktop-update.service" "$install_dir/lib/$package_name/" || exit 1
+cp "$(dirname "$script_dir")/auto-update/claude-desktop-update.timer" "$install_dir/lib/$package_name/" || exit 1
+echo 'Shared launcher library + doctor + mcp-cli + cowork-setup + auto-update copied'
 
 # --- Create Desktop Entry ---
 echo 'Creating desktop entry...'
@@ -125,6 +129,18 @@ fi
 # Handle --cowork-setup (check/install KVM backend dependencies)
 if [[ "\${1:-}" == '--cowork-setup' ]]; then
 	run_cowork_setup "\${2:-}"
+	exit \$?
+fi
+
+# Handle --update (check/build/install newer Claude from this fork)
+if [[ "\${1:-}" == '--update' ]]; then
+	run_auto_update "\${2:-}"
+	exit \$?
+fi
+
+# Handle --setup-auto-update (install the daily update timer)
+if [[ "\${1:-}" == '--setup-auto-update' ]]; then
+	run_setup_auto_update "\${2:-}"
 	exit \$?
 fi
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily check for Claude Desktop updates
+Documentation=https://github.com/aaddrick/claude-desktop-debian
+
+[Timer]
+# Once a day, a few minutes after boot if a run was missed (laptops).
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

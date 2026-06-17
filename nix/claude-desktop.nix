@@ -218,6 +218,14 @@ stdenvNoCC.mkDerivation {
       $out/lib/claude-desktop/mcp-cli.sh
     install -Dm755 ${sourceRoot}/scripts/cowork-setup.sh \
       $out/lib/claude-desktop/cowork-setup.sh
+    install -Dm755 ${sourceRoot}/scripts/auto-update.sh \
+      $out/lib/claude-desktop/auto-update.sh
+    install -Dm755 ${sourceRoot}/scripts/auto-update-apply.sh \
+      $out/lib/claude-desktop/auto-update-apply.sh
+    install -Dm644 ${sourceRoot}/scripts/auto-update/claude-desktop-update.service \
+      $out/lib/claude-desktop/claude-desktop-update.service
+    install -Dm644 ${sourceRoot}/scripts/auto-update/claude-desktop-update.timer \
+      $out/lib/claude-desktop/claude-desktop-update.timer
 
     # Install .desktop file
     mkdir -p $out/share/applications
@@ -251,6 +259,18 @@ fi
 # Handle --cowork-setup (check/install KVM backend dependencies)
 if [[ "''${1:-}" == '--cowork-setup' ]]; then
 	run_cowork_setup "''${2:-}"
+	exit $?
+fi
+
+# Handle --update (check/build/install newer Claude from this fork)
+if [[ "''${1:-}" == '--update' ]]; then
+	run_auto_update "''${2:-}"
+	exit $?
+fi
+
+# Handle --setup-auto-update (install the daily update timer)
+if [[ "''${1:-}" == '--setup-auto-update' ]]; then
+	run_setup_auto_update "''${2:-}"
 	exit $?
 fi
 

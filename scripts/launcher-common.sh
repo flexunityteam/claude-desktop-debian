@@ -687,3 +687,13 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mcp-cli.sh"
 #===============================================================================
 # shellcheck source=scripts/cowork-setup.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cowork-setup.sh"
+
+#===============================================================================
+# Auto-Update
+#
+# run_auto_update + run_setup_auto_update live in auto-update.sh
+# alongside this file. Must be sourced after doctor.sh: reuses
+# _doctor_colors and the _pass/_warn/_info output helpers.
+#===============================================================================
+# shellcheck source=scripts/auto-update.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/auto-update.sh"
